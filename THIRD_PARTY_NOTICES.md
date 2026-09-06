@@ -90,6 +90,7 @@ External packages that a workspace package resolves at runtime. The tier covers 
 | [`micromark-util-symbol`](https://github.com/micromark/micromark/tree/main/packages/micromark-util-symbol) | MIT |
 | [`micromark-util-types`](https://github.com/micromark/micromark/tree/main/packages/micromark-util-types) | MIT |
 | [`mime-types`](https://github.com/jshttp/mime-types) | MIT |
+| [`mqtt`](https://github.com/mqttjs/MQTT.js) | MIT |
 | [`negotiator`](https://github.com/jshttp/negotiator) | MIT |
 | [`node-addon-require-builtin`](https://www.npmjs.com/package/node-addon-require-builtin) | MIT |
 | [`node-pty`](https://github.com/microsoft/node-pty) | MIT |
