@@ -12,6 +12,39 @@ import type {
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 
+/**
+ * AppCreator deployment gate: when the dsh-alioth web gate script sets
+ * `dsh.uiWorkspace.pickOnNewSession`, a bare New Session always lands on the
+ * workspace picker (choose the app first). Opt-in by deployment, default off.
+ */
+function forcePickOnNewSession(): boolean {
+  try {
+    return globalThis.localStorage.getItem('dsh.uiWorkspace.pickOnNewSession') === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * AppCreator namespace isolation: when the web gate script records the
+ * caller's namespace (`dsh.uiWorkspace.namespaceFilter`), workspace lists
+ * show only workspaces whose path belongs to that namespace. Opt-in by
+ * deployment, default off.
+ */
+export function workspaceNamespaceFilter(): string | undefined {
+  try {
+    const value = globalThis.localStorage.getItem('dsh.uiWorkspace.namespaceFilter')
+    return typeof value === 'string' && value !== '' ? value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** True when a workspace path belongs to the namespace (path-segment match). */
+export function workspacePathInNamespace(path: string, namespace: string): boolean {
+  return new RegExp(`/(?:^|/)${namespace}(?:/|$)`).test(path)
+}
+
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
   /**
@@ -158,6 +191,14 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const currentWorkspaceId = current === undefined
       ? undefined
       : workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
+    // AppCreator gate (deployment opt-in via localStorage flag set by the
+    // dsh-alioth web gate script): a bare New Session must land on the
+    // picker instead of silently reconnecting the most recent workspace —
+    // the product flow is choose-the-app first, chat second.
+    if (forcePickOnNewSession() && workspaceId === undefined) {
+      this.sessions.clear()
+      return
+    }
     const recent = workspace.phase === 'ready' && sessions.phase === 'ready'
       ? recentWorkspace(workspace.items, sessions.byId)
       : undefined

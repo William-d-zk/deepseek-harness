@@ -10,6 +10,7 @@
  * (same package — direct composition, no slot between them).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { workspaceNamespaceFilter, workspacePathInNamespace } from '../navigation.ts'
 import clsx from 'clsx'
 import {
   Button, IconCloseFill14, IconPersonalizationOutline16,
@@ -311,7 +312,16 @@ function SessionTree({
   )
   const ungroupedSessionIds = useMemo(() => {
     const accounted = new Set(workspaces.flatMap(workspace => workspace.sessionIds))
-    return list.ids.filter((id: SessionId) => list.byId[id] !== undefined && !accounted.has(id))
+    const namespace = workspaceNamespaceFilter()
+    return list.ids.filter((id: SessionId) => {
+      const summary = list.byId[id]
+      if (summary === undefined || accounted.has(id)) return false
+      // Namespace isolation applies to ungrouped sessions too: only sessions
+      // whose working directory provably belongs to this namespace render;
+      // legacy sessions without a cwd stay hidden once isolation is on.
+      if (namespace === undefined) return true
+      return summary.cwd !== undefined && workspacePathInNamespace(summary.cwd, namespace)
+    })
   }, [list, workspaces])
   useEffect(() => {
     if (list.phase !== 'ready') return
@@ -351,14 +361,21 @@ function SessionTree({
     () => reconciledSessionOrder(ungroupedSessionIds, sessionOrderByAccount[UNGROUPED_KEY]),
     [sessionOrderByAccount, ungroupedSessionIds],
   )
+  // AppCreator namespace isolation (deployment opt-in via localStorage):
+  // only workspaces whose path belongs to the caller's namespace render.
+  const visibleOrderedWorkspaces = useMemo(() => {
+    const namespace = workspaceNamespaceFilter()
+    if (namespace === undefined) return orderedWorkspaces
+    return orderedWorkspaces.filter(workspace => workspacePathInNamespace(workspace.path, namespace))
+  }, [orderedWorkspaces])
   const groups = useMemo(
-    () => deriveGroups(list, orderedWorkspaces, archivedSessionIds, pendingInteractions, {
+    () => deriveGroups(list, visibleOrderedWorkspaces, archivedSessionIds, pendingInteractions, {
       expandedGroups,
       ...(sessionOrderByAccount[UNGROUPED_KEY] === undefined
         ? {}
         : { ungroupedOrder: sessionOrderByAccount[UNGROUPED_KEY] }),
     }),
-    [list, orderedWorkspaces, archivedSessionIds, pendingInteractions, expandedGroups, sessionOrderByAccount],
+    [list, visibleOrderedWorkspaces, archivedSessionIds, pendingInteractions, expandedGroups, sessionOrderByAccount],
   )
   useEffect(() => {
     if (revealGroup === undefined || groupExpansion[revealGroup] === true) return
