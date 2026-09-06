@@ -9,6 +9,7 @@
  * occupant's own create-folder affordance already covers creating one.
  */
 import type { ReactNode, RefObject } from 'react'
+import { workspaceNamespaceFilter, workspacePathInNamespace } from './navigation.ts'
 import { useCallback, useEffect, useState } from 'react'
 import {
   Button, IconFolderClose16, IconPlusOutline16, Menu, Modal, type MenuEntry,
@@ -103,9 +104,15 @@ export function WorkspacePickFlow({
     : []
   // With workspaces listed, the add action pins below the scroll region
   // (divider + always visible); otherwise it IS the menu.
-  const pinAdd = !addOnly && workspaces.length > 0
+  // AppCreator namespace isolation: only workspaces of the caller's
+  // namespace are offered (see workspaceNamespaceFilter in navigation.ts).
+  const namespace = workspaceNamespaceFilter()
+  const visibleWorkspaces = namespace === undefined
+    ? workspaces
+    : workspaces.filter(workspace => workspacePathInNamespace(workspace.path, namespace))
+  const pinAdd = !addOnly && visibleWorkspaces.length > 0
   const items: MenuEntry[] = pinAdd
-    ? workspaces.map(workspace => ({
+    ? visibleWorkspaces.map(workspace => ({
       id: workspace.workspaceId,
       label: workspace.title,
       icon: <IconFolderClose16 size={16} />,

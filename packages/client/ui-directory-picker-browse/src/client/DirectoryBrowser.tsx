@@ -270,6 +270,20 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
  * @param props - owner-controlled browser props.
  * @returns the dialog element (null while closed, via Modal).
  */
+
+/**
+ * AppCreator picker mode (deployment opt-in via localStorage flag set by the
+ * dsh-alioth web gate script): the browser lists apps under a namespace, so
+ * folder-creation and hidden-file controls are meaningless and hidden.
+ */
+function appPickingMode(): boolean {
+  try {
+    return globalThis.localStorage.getItem('dsh.uiWorkspace.appPicking') === '1'
+  } catch {
+    return false
+  }
+}
+
 export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen, onClose, busy, t }: DirectoryBrowserProps) {
   // Miller state: the listed level, the selected row in it, and the selected
   // folder's own listing (the right column; null while nothing is selected).
@@ -962,34 +976,36 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
           {error !== null && <div className={css.error} role="alert">{error}</div>}
         </div>
         <div className={css.footerBar}>
-          <Button
-            variant="outline"
-            icon={<IconPlusOutline16 size={14} />}
-            disabled={parent === null || loading || parentInert || draftPending}
-            onClick={() => {
-              setFolderDraft('')
-              setCreateError(null)
-            }}
-          >
-            {t('browser.newFolder')}
-          </Button>
-          <button
-            type="button"
-            className={clsx(css.showHiddenToggle, showHidden && css.showHiddenToggleActive)}
-            aria-pressed={showHidden}
-            disabled={parentInert}
-            // The toggle composes with the path editor (dot-led prefixes and
-            // this filter interleave): while editing, don't steal focus, so
-            // toggling never blur-cancels a draft mid-thought. Outside editing
-            // it keeps native focus behavior.
-            onMouseDown={draftPending ? (event) => { event.preventDefault() } : undefined}
-            onClick={() => { setShowHidden(prev => !prev) }}
-          >
-            {t('browser.showHidden')}
-            {/* Trailing check (Menu's selected vocabulary): the label never
+          {!appPickingMode() && <>
+            <Button
+              variant="outline"
+              icon={<IconPlusOutline16 size={14} />}
+              disabled={parent === null || loading || parentInert || draftPending}
+              onClick={() => {
+                setFolderDraft('')
+                setCreateError(null)
+              }}
+            >
+              {t('browser.newFolder')}
+            </Button>
+            <button
+              type="button"
+              className={clsx(css.showHiddenToggle, showHidden && css.showHiddenToggleActive)}
+              aria-pressed={showHidden}
+              disabled={parentInert}
+              // The toggle composes with the path editor (dot-led prefixes and
+              // this filter interleave): while editing, don't steal focus, so
+              // toggling never blur-cancels a draft mid-thought. Outside editing
+              // it keeps native focus behavior.
+              onMouseDown={draftPending ? (event) => { event.preventDefault() } : undefined}
+              onClick={() => { setShowHidden(prev => !prev) }}
+            >
+              {t('browser.showHidden')}
+              {/* Trailing check (Menu's selected vocabulary): the label never
               * shifts when the pressed state toggles. */}
-            {showHidden && <IconCheckOutline16 size={14} />}
-          </button>
+              {showHidden && <IconCheckOutline16 size={14} />}
+            </button>
+          </>}
           <span className={css.footerGap} />
           <Button variant="outline" className={clsx(css.footerAction)} disabled={parentInert} onClick={onClose}>{t('browser.cancel')}</Button>
           <Button
