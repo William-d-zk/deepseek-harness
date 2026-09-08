@@ -364,7 +364,14 @@ describe('ModelsSection', () => {
     await act(async () => { await controller.load() })
     // The draft card is still open while its row is gone from the directory.
     expect(screen.getByLabelText(en.keyInput)).toBeTruthy()
-    expect(cardSeatCalls(renderSlot).some(([provider]) => provider === 'anthropic')).toBe(false)
+    // The refresh lands in two renders: a loading pass over the previous rows
+    // (the draft seat still present) and the ready pass over the refreshed
+    // directory (the dormant row gone). Assert the settled render: the last
+    // provider-card dispatch must not carry the dropped row.
+    const seats = cardSeatCalls(renderSlot)
+    const settled = seats.at(-1)
+    expect(settled).toBeDefined()
+    expect(settled![0]).not.toBe('anthropic')
   })
   it('renders the unkeyed whole-section provider as an open setup card in the first-run posture', async () => {
     await mountFirstRun()

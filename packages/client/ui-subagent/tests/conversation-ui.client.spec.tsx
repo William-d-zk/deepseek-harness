@@ -415,7 +415,6 @@ describe('SubagentHeaderLineage', () => {
     const trigger = screen.getByRole('button', { name: '1 个子代理，正在运行' })
     expect(within(trigger).getByText('9 个子代理')).toBeTruthy()
     hoverCatalog(trigger)
-
     const runningRow = screen.getByRole('treeitem', { name: /running.*4\.6K tok · 1分10秒/ })
     const runningMetrics = within(runningRow)
     const tokenMetric = runningMetrics.getByText('4.6K tok')
@@ -433,8 +432,16 @@ describe('SubagentHeaderLineage', () => {
     expect(screen.getByText('约2年3个月')).toBeTruthy()
     expect(screen.getByText('约1年')).toBeTruthy()
 
-    await vi.advanceTimersByTimeAsync(1_000)
-    expect(screen.getByRole('treeitem', { name: /running.*4\.6K tok · 1分11秒/ })).toBeTruthy()
+    // The hover catalog opens after a 150ms delay, so the running row's 1s
+    // interval starts near clock 150. Advance well past the first tick (and
+    // short of the second) so exactly one tick fires regardless of the few
+    // ms the effect's registration drifts under vitest 5.
+    // Advance well past several 1s ticks. The running row's interval keeps
+    // updating its live duration while settled rows stay frozen; asserting a
+    // multi-tick delta avoids depending on exactly which tick the effect's
+    // registration lands on under vitest 5's fake timers.
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(screen.getByRole('treeitem', { name: /running.*4\.6K tok · 1分15秒/ })).toBeTruthy()
     expect(screen.getByRole('treeitem', { name: /finished.*123 tok · 1小时02分03秒/ })).toBeTruthy()
     expect(screen.getByRole('treeitem', { name: /interrupted.*123M tok · 6秒/ })).toBeTruthy()
   })

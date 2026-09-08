@@ -177,7 +177,9 @@ describe('a refused switch', () => {
 
       // Transient by design: it holds long enough to read a cause that names
       // packages, then leaves rather than sitting over the screen.
-      act(() => { vi.advanceTimersByTime(9001) })
+      // Vitest 5: async advance so the timer callback's state update (and
+      // React's microtask flush) completes inside act before we assert.
+      await act(async () => { await vi.advanceTimersByTimeAsync(9001) })
       expect(screen.queryByRole('alert')).toBeNull()
     } finally {
       vi.useRealTimers()
