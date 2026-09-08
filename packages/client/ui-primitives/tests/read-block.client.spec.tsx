@@ -197,6 +197,8 @@ describe('ReadBlock copy', () => {
     fireEvent.click(screen.getByRole('button', { name: '复制成功' }))
     expect(writeText).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(1000)
+    // React state updates queued by the timer callback commit inside act.
+    await act(async () => {})
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 

@@ -23,6 +23,18 @@ linkWorkspacePackages: true
 overrides:
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
+  # Alioth branch stack alignment: pin the client toolchain to the
+  # AliothStudio catalog versions while package specifiers stay upstream-shaped.
+  # TypeScript stays at the upstream 6.x line: the Go-native 7.x drops the
+  # compiler JS API that packages/typert and scripts/ consume directly.
+  react: '^19.2.8'
+  react-dom: '^19.2.8'
+  '@types/react': '^19.2.17'
+  # The 6.x line is pinned project-wide (see the comment above); the
+  # peerDependencyRules entry alone does not constrain non-peer dependents
+  # (eslint-plugin-sonarjs declares typescript >=5 and pnpm resolved 7.x,
+  # whose ESM-only build breaks sonarjs' CJS interop at load time).
+  typescript: '>=5 <7'
 
 peerDependencyRules:
   allowedVersions:

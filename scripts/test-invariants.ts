@@ -54,40 +54,51 @@ type PluginFiber = ReturnType<RegistryService['plugin']>
 type PluginCallback = Plugin.Function | Plugin.Constructor
 
 const hosts = new WeakMap<Context, InvariantHost>()
-// oxlint-disable-next-line typescript/unbound-method -- every call below supplies its RegistryService receiver explicitly.
+// Vitest 5 loads the setup module once per inline project; with a shared
+// module graph the cordis RegistryService prototype is the same instance, so
+// a second project's setup would re-patch the already-wrapped `plugin` and
+// double-start the invariant host on every root. Guard the patch globally so
+// only the first loaded instance wraps the prototype; later instances reuse
+// its interceptor (which resolves testPath per call via expect.getState()).
 const originalPlugin = RegistryService.prototype.plugin
+const invariantPatchOwner = Symbol.for('test-invariants.patched')
+const globalThis_ = globalThis as typeof globalThis & {
+  [invariantPatchOwner]?: boolean
+}
+if (globalThis_[invariantPatchOwner] !== true) {
+  RegistryService.prototype.plugin = function(plugin: Plugin, config?: unknown, getOuterStack?: () => string[]) {
+    const testPath = expect.getState().testPath ?? ''
+    if (usesManualInvariantTree(testPath)) return originalPlugin.call(this, plugin, config, getOuterStack)
 
-RegistryService.prototype.plugin = function(plugin: Plugin, config?: unknown, getOuterStack?: () => string[]) {
-  const testPath = expect.getState().testPath ?? ''
-  if (usesManualInvariantTree(testPath)) return originalPlugin.call(this, plugin, config, getOuterStack)
+    const root = this.ctx.root
+    const host = hosts.get(root) ?? startInvariantHost(root)
+    const callback = this.resolve(plugin)
+    const existing = callback === undefined ? undefined : host.byCallback.get(callback)
+    if (existing !== undefined) {
+      return hasBarrierOwner(host, this.ctx) ? existing : joinInvariantStartup(existing, host.ready)
+    }
 
-  const root = this.ctx.root
-  const host = hosts.get(root) ?? startInvariantHost(root)
-  const callback = this.resolve(plugin)
-  const existing = callback === undefined ? undefined : host.byCallback.get(callback)
-  if (existing !== undefined) {
-    return hasBarrierOwner(host, this.ctx) ? existing : joinInvariantStartup(existing, host.ready)
+    // Causal descendants of a gated target have already crossed the barrier.
+    // Host service and companion descendants also bypass it so their own startup
+    // cannot depend on the readiness they are responsible for providing.
+    if (hasBarrierOwner(host, this.ctx)) {
+      return originalPlugin.call(this, plugin, config, getOuterStack)
+    }
+    if (callback === undefined) {
+      return originalPlugin.call(this, plugin, config, getOuterStack)
+    }
+
+    const fiber = originalPlugin.call(
+      this,
+      withInvariantReadiness(plugin, callback as PluginCallback),
+      config,
+      getOuterStack,
+    )
+    const initiallyPending = fiber.ctx.fiber.state === FiberState.PENDING
+    host.barrierOwners.add(fiber.ctx.fiber)
+    return joinInvariantStartup(fiber, host.ready, initiallyPending)
   }
-
-  // Causal descendants of a gated target have already crossed the barrier.
-  // Host service and companion descendants also bypass it so their own startup
-  // cannot depend on the readiness they are responsible for providing.
-  if (hasBarrierOwner(host, this.ctx)) {
-    return originalPlugin.call(this, plugin, config, getOuterStack)
-  }
-  if (callback === undefined) {
-    return originalPlugin.call(this, plugin, config, getOuterStack)
-  }
-
-  const fiber = originalPlugin.call(
-    this,
-    withInvariantReadiness(plugin, callback as PluginCallback),
-    config,
-    getOuterStack,
-  )
-  const initiallyPending = fiber.ctx.fiber.state === FiberState.PENDING
-  host.barrierOwners.add(fiber.ctx.fiber)
-  return joinInvariantStartup(fiber, host.ready, initiallyPending)
+  globalThis_[invariantPatchOwner] = true
 }
 
 /**

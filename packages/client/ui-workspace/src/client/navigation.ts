@@ -41,7 +41,11 @@ export function workspaceNamespaceFilter(): string | undefined {
 
 /** True when a workspace path belongs to the namespace (path-segment match). */
 export function workspacePathInNamespace(path: string, namespace: string): boolean {
-  return new RegExp(`/(?:^|/)${namespace}(?:/|$)`).test(path)
+  // Path-segment boundary match: the namespace must be a whole segment
+  // (bounded by start/`/` on the left and `/`/end on the right). The left
+  // alternation is unanchored so the literal `/` before a mid-path segment
+  // is consumed by the `^|/` group, not required twice.
+  return new RegExp(`(?:^|/)${namespace}(?=/|$)`).test(path)
 }
 
 /** Workspace archive and directory operations consumed by Client UI domains. */

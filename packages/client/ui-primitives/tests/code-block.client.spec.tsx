@@ -43,6 +43,9 @@ describe('highlightToHtml', () => {
   ]
 
   it('lazily loads every read-card grammar: plain first, highlighted after load', async () => {
+    // Vitest 5's module runner transforms each lazily imported shiki grammar
+    // on first touch; 24 cold imports exceed the 5s default timeout. The
+    // registration notification (not a deadline) still gates correctness.
     const registered = Promise.withResolvers<undefined>()
     // Registration notifications, not a private polling deadline, establish readiness.
     const stop = subscribeGrammarLoaded(() => {
@@ -55,7 +58,7 @@ describe('highlightToHtml', () => {
     } finally {
       stop()
     }
-  })
+  }, 60_000)
 })
 
 describe('CodeBlock', () => {
@@ -99,6 +102,8 @@ describe('CodeBlock', () => {
     fireEvent.click(screen.getByRole('button', { name: '复制成功' }))
     expect(writeText).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(1000)
+    // React state updates queued by the timer callback commit inside act.
+    await act(async () => {})
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
