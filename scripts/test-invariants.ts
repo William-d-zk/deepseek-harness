@@ -60,6 +60,7 @@ const hosts = new WeakMap<Context, InvariantHost>()
 // double-start the invariant host on every root. Guard the patch globally so
 // only the first loaded instance wraps the prototype; later instances reuse
 // its interceptor (which resolves testPath per call via expect.getState()).
+// oxlint-disable-next-line typescript/unbound-method -- always invoked via .call with an explicit receiver
 const originalPlugin = RegistryService.prototype.plugin
 const invariantPatchOwner = Symbol.for('test-invariants.patched')
 const globalThis_ = globalThis as typeof globalThis & {

@@ -3,7 +3,7 @@
 // turn wall time click-opens the Turn-time dialog. Both sit right of the
 // branch action in the tail's IconActions row, ahead of the plain clock text.
 
-import { useEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import {
   IconClockOutline16, IconDatabaseOutline16, useAnchoredPosition, useDismissOnOutsidePointer,
@@ -54,8 +54,8 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 interface StatDialogSeat {
   open: boolean
   setOpen: (open: boolean) => void
-  rootRef: MutableRefObject<HTMLSpanElement | null>
-  panelRef: MutableRefObject<HTMLDivElement | null>
+  rootRef: RefObject<HTMLSpanElement | null>
+  panelRef: RefObject<HTMLDivElement | null>
   pos: CSSProperties | null
 }
 
