@@ -24,10 +24,13 @@ The feedback group collects human opinions about the harness's work: users can s
 |---|---|
 | [`command-feedback`](command-feedback/README.md) | A `/feedback` command that records a free-text session remark with one command, without a model turn |
 | [`message-feedback`](message-feedback/README.md) | Per-message ratings and notes, served to product surfaces through the `messageFeedback` service |
+| [`page-feedback`](page-feedback/README.md) | Visual page-annotation loop: on-page overlay capture, persistent annotation store with audit events and watch, ego-browser resolve verification |
 
 Session remarks are a one-way signal: recording one is safe at any point in a conversation and never changes what the model sees. With a feedback-gated sharing policy, recording a session remark is what releases the session for sharing.
 
 Per-message ratings and notes are stored with the session, survive restarts, and never appear in model history or telemetry.
+
+Page annotations are a third, independent kind: a human pins an element on a running page and an agent consumes the annotation through the `pageFeedback` service with a durable `pending ⇄ acknowledged → resolved | dismissed` lifecycle and audit trail. See the [page-feedback README](page-feedback/README.md) for the carrier wiring and verification seam.
 
 <a id="related-documentation"></a>
 ## Related documentation

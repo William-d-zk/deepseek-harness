@@ -1584,6 +1584,19 @@ export interface Config {
 
 Source: [`packages/feedback/message-feedback/src/index.ts:39`](../packages/feedback/message-feedback/src/index.ts)
 
+<a id="deepseek-aidsh-page-feedback"></a>
+
+## `@deepseek-ai/dsh-page-feedback`
+
+```ts config-catalog
+export interface Config {
+  /** SQLite database path; defaults to `~/.dsh/feedback-page.db`. */
+  dbPath?: string
+}
+```
+
+Source: [`packages/feedback/page-feedback/src/index.ts:39`](../packages/feedback/page-feedback/src/index.ts)
+
 <a id="deepseek-aidsh-permission-presets"></a>
 
 ## `@deepseek-ai/dsh-permission-presets`
