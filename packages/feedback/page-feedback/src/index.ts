@@ -29,6 +29,7 @@ export type * from './types.ts'
 export { ANNOTATION_STATUSES, STATUS_TRANSITIONS } from './types.ts'
 export type { PageFeedbackService } from './types.ts'
 export { createPageFeedbackStore } from './store.ts'
+export { OVERLAY_JS, OVERLAY_MARKER } from './overlay.ts'
 
 /** Default per-user state directory (matches the harness feedback sibling). */
 export function defaultDbPath(): string {
