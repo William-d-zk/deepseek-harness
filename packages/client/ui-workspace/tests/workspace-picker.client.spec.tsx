@@ -317,3 +317,36 @@ describe('WorkspacePicker', () => {
     expect(screen.queryByRole('menuitem', { name: '添加工作区…' })).toBeNull()
   })
 })
+
+describe('AppCreator namespace isolation', () => {
+  const ns = (id: string, title: string, path: string): WorkspaceView => ({ ...workspace(id, title), path })
+  const items = [ns('alpha', 'Alpha', '/apps/ns1/alpha'), ns('beta', 'Beta', '/apps/other/beta')]
+
+  afterEach(() => {
+    globalThis.localStorage.clear()
+  })
+
+  it('offers every workspace while the deployment gate is off', () => {
+    mount(items)
+    expect(screen.getByRole('menuitem', { name: 'Alpha' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'Beta' })).toBeTruthy()
+  })
+
+  it('offers only workspaces inside the caller namespace once the gate is on', () => {
+    globalThis.localStorage.setItem('dsh.uiWorkspace.namespaceFilter', 'ns1')
+    mount(items)
+    expect(screen.getByRole('menuitem', { name: 'Alpha' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: 'Beta' })).toBeNull()
+  })
+
+  it('raises the flow straight when no workspace matches the namespace', () => {
+    // A one-row add-only menu would offer no choice, so the owner's open
+    // request lands in the directory flow itself (same as an empty baseline).
+    globalThis.localStorage.setItem('dsh.uiWorkspace.namespaceFilter', 'ns1')
+    const b = mount([ns('beta', 'Beta', '/apps/other/beta')])
+    expect(screen.queryByRole('menuitem', { name: 'Beta' })).toBeNull()
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(b.onClose).toHaveBeenCalled()
+    expect(screen.getByTestId('directory-flow')).toBeTruthy()
+  })
+})

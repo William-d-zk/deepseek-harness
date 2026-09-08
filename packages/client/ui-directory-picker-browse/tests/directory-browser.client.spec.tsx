@@ -1758,3 +1758,26 @@ describe('DirectoryBrowser', () => {
     expect(b.listDirectory).toHaveBeenLastCalledWith(undefined, expect.any(AbortSignal))
   })
 })
+
+describe('AppCreator app-picking mode', () => {
+  afterEach(() => {
+    globalThis.localStorage.clear()
+  })
+
+  it('keeps folder-creation and hidden-file footer controls by default', async () => {
+    mount()
+    await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    expect(screen.getByRole('button', { name: 'browser.newFolder' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'browser.showHidden' })).toBeTruthy()
+  })
+
+  it('hides those controls while the gate script marks the picker app-scoped', async () => {
+    globalThis.localStorage.setItem('dsh.uiWorkspace.appPicking', '1')
+    mount()
+    await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    expect(screen.queryByRole('button', { name: 'browser.newFolder' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'browser.showHidden' })).toBeNull()
+    // The dialog stays operational: dismissing is still offered.
+    expect(screen.getByRole('button', { name: 'browser.cancel' })).toBeTruthy()
+  })
+})
