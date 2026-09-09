@@ -1,6 +1,7 @@
 /** Host WebSocket owner for multiplexed Typert Remote streams. */
 
 import type { IncomingMessage } from 'node:http'
+import { connectionAccountStorage } from '@deepseek-ai/dsh-client-connection'
 import type { Duplex } from 'node:stream'
 import WebSocket, { WebSocketServer, type RawData } from 'ws'
 import {
@@ -45,12 +46,12 @@ export class RemoteStreamMuxServer {
    * @param socket - carrier socket transferred to the WebSocket server.
    * @param head - bytes already read after the HTTP upgrade headers.
    */
-  handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+  handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer, account: string | null = null): void {
     this.server.handleUpgrade(req, socket, head, (websocket) => {
       this.missedHeartbeats.set(websocket, 0)
       websocket.on('pong', () => { this.missedHeartbeats.set(websocket, 0) })
       this.startHeartbeat()
-      const connection = new RemoteStreamMuxConnection(websocket, this.open, this.failure)
+      const connection = new RemoteStreamMuxConnection(websocket, this.open, this.failure, account)
       const done = connection.run()
       this.connections.add(done)
       void done.then(() => { this.connections.delete(done) })
@@ -107,6 +108,7 @@ class RemoteStreamMuxConnection {
     private readonly socket: WebSocket,
     private readonly open: RemoteStreamOpener,
     private readonly failure: RemoteStreamFailureMapper,
+    private readonly account: string | null = null,
   ) {}
 
   async run(): Promise<void> {
@@ -146,7 +148,8 @@ class RemoteStreamMuxConnection {
       done: Promise.resolve(),
     }
     this.streams.set(message.streamId, active)
-    const done = this.pump(message.streamId, message.endpoint, message.payload, active)
+    const done = connectionAccountStorage.run({ account: this.account }, () =>
+      this.pump(message.streamId, message.endpoint, message.payload, active))
     active.done = done
     const remove = (): void => { this.streams.delete(message.streamId) }
     void done.then(remove, remove)

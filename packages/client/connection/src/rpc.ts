@@ -1,3 +1,6 @@
+
+import type { ConnectionAccountHeaders, ConnectionAccountResolver } from './account-types.ts'
+
 /** Generic unary RPC contracts shared by the Host and Client Connection halves. */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
@@ -197,6 +200,24 @@ export interface HostConnectionHandle {
    * @returns root URL accepted by {@link authorizeIndex} for initial login.
    */
   authenticatedUrl(baseUrl: string): string
+
+  /**
+   * Register the host-login account resolver (opt-in). The resolver maps one
+   * request's headers (cookie jar) to the signed-in account string, or null.
+   * Host plugins (directory pickers, session consumers) read the account of
+   * the dispatch/stream currently being processed through
+   * `currentConnectionAccount()`.
+   * @param resolver - header-to-account resolver; replaces any prior one.
+   * @returns a disposer clearing the resolver.
+   */
+  registerAccountResolver(resolver: ConnectionAccountResolver): () => void
+
+  /**
+   * Resolve the signed-in account for one request (boundary use).
+   * @param headers - request headers (cookie jar).
+   * @returns the resolver's account claim, or null when anonymous/unregistered.
+   */
+  resolveAccount(headers: ConnectionAccountHeaders): Promise<string | null>
 }
 
 /** Transport-independent Fetch handler used by HTTP and worker carriers. */

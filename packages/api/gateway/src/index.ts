@@ -211,13 +211,25 @@ export class TypertGatewayService extends Service implements TypertGateway {
       webCtx.effect(() => {
         const route: WebUpgradeRoute = {
           path: REMOTE_STREAM_MUX_PATH,
-          handler: (req, socket, head) => {
+          handler: async (req, socket, head) => {
             const rejection = webCtx.connection.requestRejection(req)
             if (rejection !== undefined) {
               rejectRemoteStreamUpgrade(socket, rejection)
               return
             }
-            mux.handleUpgrade(req, socket, head)
+            // Host-login account for every stream of this socket (alioth
+            // session cookie). Resolution may hit the host's session store,
+            // hence the async upgrade before the socket is handed to ws.
+            let account: string | null = null
+            try {
+              account = await webCtx.connection.resolveAccount({
+                cookie: req.headers.cookie,
+                host: req.headers.host,
+              })
+            } catch {
+              account = null
+            }
+            mux.handleUpgrade(req, socket, head, account)
           },
         }
         const unregister = webCtx.webServer.registerUpgrade(route)
