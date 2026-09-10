@@ -1,6 +1,11 @@
 packages:
   - vendor/*
   - packages/*/*
+
+  - ../../.dsh-chess/profiles/web
+  - ../../.dsh-chess/profiles/rchess
+  # oxlint 1.82 platform bindings (Alioth alignment) stay release-age exempt.
+
   - ../dsh-chess
   - ../dsh-chess/packages/*
   # The Landlock launcher is developed with its harness consumers but keeps

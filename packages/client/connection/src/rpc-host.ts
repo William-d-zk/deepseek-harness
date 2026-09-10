@@ -12,6 +12,7 @@ import { bridge } from './http-bridge.ts'
 import { isTrustedApiRequest } from './api-request-trust.ts'
 import { API_PATH } from './api-path.ts'
 import type { BrowserAuth } from './browser-auth.ts'
+import type { ConnectionAccountHeaders, ConnectionAccountResolver } from './account-types.ts'
 import type {
   ConnectionIndexRequest,
   ConnectionIndexResponse,
@@ -60,6 +61,7 @@ declare module '@deepseek-ai/cordis' {
 export class HostConnectionService extends Service implements HostConnectionHandle {
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
   private readonly fetchRoutes = new Map<string, RegisteredFetchRoute>()
+  private accountResolver: ConnectionAccountResolver | undefined
 
   /**
    * Provide the Host half over the active HTTP server.
@@ -107,6 +109,19 @@ export class HostConnectionService extends Service implements HostConnectionHand
   /** Add this process's launch token to the clean application URL. */
   authenticatedUrl(baseUrl: string): string {
     return this.browserAuth.authenticatedUrl(baseUrl)
+  }
+
+  /** @inheritdoc */
+  registerAccountResolver(resolver: ConnectionAccountResolver): () => void {
+    this.accountResolver = resolver
+    return () => {
+      if (this.accountResolver === resolver) this.accountResolver = undefined
+    }
+  }
+
+  /** Resolve the account for one request (internal; used by the HTTP/WS boundaries). */
+  async resolveAccount(headers: ConnectionAccountHeaders): Promise<string | null> {
+    return this.accountResolver === undefined ? null : this.accountResolver(headers)
   }
 
   /**

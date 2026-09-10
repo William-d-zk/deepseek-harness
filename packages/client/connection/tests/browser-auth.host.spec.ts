@@ -119,9 +119,11 @@ describe('BrowserAuth', () => {
     expect(reloaded.authenticatedUrl('http://127.0.0.1:3080')).toBe(login.launchUrl)
     expect(reloaded.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
 
+    // A restart sharing the same secret keeps the printed URL valid, so the
+    // operator's bookmark survives redeploys (token rotates only with the secret).
     const restarted = await createAuth(store)
     expect(new URL(restarted.authenticatedUrl('http://127.0.0.1:3080')).searchParams.get('token'))
-      .not.toBe(new URL(login.launchUrl).searchParams.get('token'))
+      .toBe(new URL(login.launchUrl).searchParams.get('token'))
     expect(restarted.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
     const staleUrl = new URL(login.launchUrl)
     const redirected = response()
@@ -130,7 +132,7 @@ describe('BrowserAuth', () => {
       '127.0.0.1:3080',
       { cookie: login.cookie },
     ), redirected.value)).toBe(false)
-    expect(redirected.state).toEqual({
+    expect(redirected.state).toMatchObject({
       status: 303,
       headers: {
         'cache-control': 'no-store',
@@ -138,6 +140,8 @@ describe('BrowserAuth', () => {
         'referrer-policy': 'no-referrer',
       },
     })
+    // The still-valid launch token refreshes the same-authority cookie.
+    expect(redirected.state.headers?.['set-cookie']).toMatch(/^dsh-auth-[^=]+=v1\./)
   })
 
   it('accepts the cookie for index serving and gives every unauthenticated request one response', async () => {
@@ -205,6 +209,18 @@ describe('BrowserAuth', () => {
     expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(false)
     vi.setSystemTime(new Date('2026-08-23T00:00:00.000Z'))
     expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie }))).toBe(false)
+  })
+
+  it('keeps one launch token across activations sharing a secret, and rotates it with the secret', async () => {
+    const store = new RecordCredentials()
+    const first = await createAuth(store, 30, {})
+    const second = await createAuth(store, 30, {})
+    const url = (auth: BrowserAuth): string => auth.authenticatedUrl('http://127.0.0.1:18884/')
+    expect(url(second)).toBe(url(first))
+
+    // A fresh credential store mints a new secret, so the token rotates with it.
+    const rotated = await createAuth(new RecordCredentials(), 30, {})
+    expect(url(rotated)).not.toBe(url(first))
   })
 
   it('loads one secret per activation and replaces it after deletion on the next activation', async () => {

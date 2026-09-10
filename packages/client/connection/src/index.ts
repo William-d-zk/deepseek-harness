@@ -9,6 +9,7 @@ import { API_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority } from './api-request-trust.ts'
 import { BrowserAuth } from './browser-auth.ts'
+import { withResolvedAccount } from './account-context.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { ConnectionRecoveryConfigSchema, resolveConnectionConfig, type ConnectionRecoveryConfig } from './recovery-config.ts'
 
@@ -42,6 +43,12 @@ export {
   serverResponseSchema,
 } from './rpc-schema.ts'
 export { HostConnectionService } from './rpc-host.ts'
+export {
+  connectionAccountStorage,
+  currentConnectionAccount,
+  withResolvedAccount,
+} from './account-context.ts'
+export type { ConnectionAccountHeaders, ConnectionAccountResolver } from './account-types.ts'
 
 export { API_PATH } from './api-path.ts'
 
@@ -132,7 +139,13 @@ export async function apply(ctx: Context, config?: ConnectionConfig): Promise<vo
           res.end(rejection === 401 ? 'unauthorized' : 'forbidden')
           return
         }
-        await bridge(req, res, fetchHandler, maxRequestBodyBytes)
+        // Host-login account scope for this dispatch (dsh-alioth registers a
+        // resolver reading its session cookie). The whole bridge inherits it.
+        await withResolvedAccount(
+          { cookie: req.headers.cookie, host: req.headers.host },
+          connection.resolveAccount.bind(connection),
+          () => bridge(req, res, fetchHandler, maxRequestBodyBytes),
+        )
       },
     }
     webCtx.effect(() => webCtx.webServer.register(route), 'client-connection: /api route')
