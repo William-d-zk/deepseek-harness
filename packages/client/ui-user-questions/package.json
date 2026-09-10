@@ -63,6 +63,7 @@
     "@deepseek-ai/dsh-client-ui-session": "workspace:^",
     "@deepseek-ai/dsh-typert-protocol": "workspace:^",
     "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "@deepseek-ai/dsh-client-ui-conversation": "workspace:^",
     "@deepseek-ai/dsh-client-connection": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
