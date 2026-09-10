@@ -70,7 +70,10 @@ describe('CodeBlock', () => {
     view.rerender(<CodeBlock code="updated text" contentRef={contentRef} />)
     expect(view.container.querySelector('[data-code-block-content]')).toBe(content)
     view.unmount()
-    expect(contentRef).toHaveBeenLastCalledWith(null)
+    // React 19's dev-mode guarded ref invocation passes extra undefined slots;
+    // the contract is the detached node alone.
+    const [detached] = contentRef.mock.calls.at(-1)!
+    expect(detached).toBeNull()
   })
 
   it('renders the highlighted tree for TypeScript', () => {
