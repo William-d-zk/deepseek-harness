@@ -49,10 +49,16 @@ function decodeBase64Url(value: string): Buffer | undefined {
   return encodeBase64Url(decoded) === value ? decoded : undefined
 }
 
-function processLaunchToken(owner: object): string {
+function processLaunchToken(owner: object, secret: Buffer): string {
   const existing = PROCESS_LAUNCH_TOKENS.get(owner)
   if (existing !== undefined) return existing
-  const created = encodeBase64Url(randomBytes(SECRET_BYTES))
+  // DSH_STABLE_LAUNCH_TOKEN: derive the launch token from the persistent
+  // signing secret instead of random bytes, so the printed GUI URL (and any
+  // bookmark carrying it) stays valid across restarts. Knowing the token
+  // reveals nothing about the secret (keyed HMAC with a domain separator);
+  // deleting the credential record rotates secret, cookie and token together.
+  const derived = createHmac('sha256', secret).update('dsh/reconnect/launch-token/v1').digest()
+  const created = encodeBase64Url(derived.subarray(0, SECRET_BYTES))
   PROCESS_LAUNCH_TOKENS.set(owner, created)
   return created
 }
@@ -191,7 +197,7 @@ export class BrowserAuth {
     private readonly secret: Buffer,
     maxAgeDays: number,
   ) {
-    this.launchToken = processLaunchToken(processOwner)
+    this.launchToken = processLaunchToken(processOwner, this.secret)
     this.maxAgeMilliseconds = maxAgeDays * DAY_MILLISECONDS
     if (!Number.isSafeInteger(this.maxAgeMilliseconds)
       || !Number.isSafeInteger(Date.now() + this.maxAgeMilliseconds)) {
