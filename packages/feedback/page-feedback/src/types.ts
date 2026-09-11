@@ -40,8 +40,25 @@ export interface Annotation {
   url: string
   comment: string
   element: string
+  /** CSS path from the top document; ` >>> ` / ` |> ` markers cross shadow roots / same-origin frames. */
   elementPath: string
   cssClasses: string
+  /** Top-document match count for `elementPath`: 1 unique, >1 ambiguous, 0 unresolvable. */
+  pathMatchCount?: number
+  /** Whether the resolved element IS this annotation's target (false = honestly ambiguous, never faked unique). */
+  pathMatchesTarget?: boolean
+  /** Re-render-stable attribute anchor (data-testid/data-test/data-qa/#id/[name]/[aria-label]) with its boundary prefix. */
+  stableSelector?: string
+  /** Table column header for a `td`, by colSpan-accumulated column order — disambiguates same-value cells. */
+  columnHeader?: string
+  /** First cell text of the annotation's row; identifies which row was annotated. */
+  rowKey?: string
+  /** React `ComponentName#key` chain (cap 8, best-effort) identifying list/virtualized rows. */
+  reactKeyPath?: string[]
+  /** Scroll offset of the element's own window; makes the viewport-relative bounding box reproducible. */
+  scroll?: { x: number; y: number }
+  /** Viewport size of the element's own window, paired with `scroll`. */
+  viewport?: { width: number; height: number }
   status: AnnotationStatus
   reply: string | null
   createdAt: number
@@ -55,8 +72,25 @@ export interface AddAnnotationInput {
   url: string
   comment: string
   element?: string
+  /** CSS path from the top document; ` >>> ` / ` |> ` markers cross shadow roots / same-origin frames. */
   elementPath?: string
   cssClasses?: string
+  /** Top-document match count for `elementPath`: 1 unique, >1 ambiguous, 0 unresolvable. */
+  pathMatchCount?: number
+  /** Whether the resolved element IS the posted target (false = honestly ambiguous, never faked unique). */
+  pathMatchesTarget?: boolean
+  /** Re-render-stable attribute anchor (data-testid/data-test/data-qa/#id/[name]/[aria-label]) with its boundary prefix. */
+  stableSelector?: string
+  /** Table column header for a `td`, by colSpan-accumulated column order — disambiguates same-value cells. */
+  columnHeader?: string
+  /** First cell text of the annotated row; identifies which row was clicked. */
+  rowKey?: string
+  /** React `ComponentName#key` chain (cap 8, best-effort) identifying list/virtualized rows. */
+  reactKeyPath?: string[]
+  /** Scroll offset of the element's own window; makes the viewport-relative bounding box reproducible. */
+  scroll?: { x: number; y: number }
+  /** Viewport size of the element's own window, paired with `scroll`. */
+  viewport?: { width: number; height: number }
 }
 
 /** Kind of audit event recorded in `annotation_events`. */
@@ -86,6 +120,12 @@ export interface VerificationEvidence {
     rect: { x: number; y: number; width: number; height: number } | null
     screenshot: string | null
     error?: string
+    /** Path matches counted inside the page (1 = unique; >1 = ambiguous, `rect` is the first match). */
+    matches?: number
+    /** How the element was located: the self-verified `elementPath`, or a re-render-stable `stableSelector`. */
+    matchedBy?: string
+    /** True when a ` >>> ` / ` |> ` boundary hop failed to resolve (host gone or ambiguous). */
+    boundaryBroken?: boolean
   }
   anomalies: string[]
 }

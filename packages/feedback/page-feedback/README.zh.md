@@ -74,12 +74,14 @@ kind: "package-reference"
 
 `OVERLAY_JS` 是自包含 vanilla IIFE 字符串（零依赖，本包不含 DOM 类型），由 carrier serve 或注入：
 
-- Alt+点击任意元素 → 评论框浮于光标处。
-- `elementPath` 为 CSS path 且带**同片段兄弟固定**：共享 tag+class 片段的两个 按钮会获得 `:nth-child(n)` 后缀，路径永不坍缩（AliothStudio 闭环的实证教训）。
-- 字段语义（`fieldName`/`fieldLabel`/`fieldPlaceholder`）与附近文本随附，供 agent 侧语义定位。
+- Alt+点击任意元素 → 评论框浮于光标处；拾取目标取自 `event.composedPath()`， 因此 shadow 子树内的点击上报真实的内层元素，点击 overlay 自身界面则不会触发批注。
+- `elementPath` 为**自校验 CSS 路径**：启发式路径先对同片段兄弟固定 `:nth-child(n)`， 再在 document 内重新解析，命中不唯一时升级为全段 `:nth-child(n)`，并把结论落为 `pathMatchCount` / `pathMatchesTarget`——歧义或不可解析是数据，绝不静默取首个匹配。
+- 跨边界目标做**边界编码**：` >>> ` 进入 shadow root、` |> ` 进入同源 iframe， 前缀递归回溯至顶层 document，宿主 document 的解析器可走完整条链。
+- **属性锚**（`stableSelector`：`data-testid` → `data-test` → `data-qa` → `#id` → `[name]` → `[aria-label]`）在重渲染后仍可命中，且在解析域内校验唯一。
+- **表格语义**（`columnHeader` 按 colSpan 累计列序、`rowKey` 取行首单元格）、**React key 链**（`reactKeyPath`）、元素所属窗口的 **scroll/viewport**、字段语义（`fieldName`/`fieldLabel`/`fieldPlaceholder`）与附近文本随附，供 agent 侧语义定位。
 - `OVERLAY_MARKER` 门控双注入；base URL 从 `window.location` 推导并回退回环。
 
-Overlay POST `{ comment, url, element, elementPath, cssClasses, ... }` 到 carrier origin 的 `POST /api/feedback/annotations`——carrier 必须对该 origin 放行浏览器 写入。
+Overlay POST `{ comment, url, element, elementPath, cssClasses, pathMatchCount, pathMatchesTarget, ... }` 到 carrier origin 的 `POST /api/feedback/annotations`——carrier 必须对该 origin 放行浏览器 写入。
 
 <a id="resolve-verification"></a>
 ## 解析验证
@@ -117,6 +119,7 @@ await runVerifier({ url, elementPath, outDir })
 - **本包无模型工具。** 消费工具由部署组合，同 `message-feedback` 的模型面。
 - **证据是尽力而为。** verifier 缝报 anomaly 而非抛错；要求硬证据门禁的部署在 工具边界组合 `--strict` 语义。
 - **字段元数据为尽力而为的 DOM 启发。** `fieldLabel` 解析依赖常规 label 标记； 缺失时退化为纯 CSS path。
+- **定位附加信息为尽力而为且可选。** 标记中无锚属性、无 React fiber、非表格或 无窗口时，`stableSelector`、`reactKeyPath`、`columnHeader`/`rowKey`、 `scroll`/`viewport` 相应缺省；`pathMatchesTarget: false` 标记无法唯一解析的路径， 消费方应回退到 `stableSelector` 或语义锚，而不是取首个匹配。
 
 移植自 AliothStudio `scripts/feedback` dev 工具协议（状态机 + 审计语义一致）；`message-feedback` 是逐消息评分的姊妹服务，页面批注与消息评分不交互。
 

@@ -72,12 +72,14 @@ The plugin mounts `ctx.pageFeedback` with the full service surface:
 
 `OVERLAY_JS` is a self-contained vanilla-IIFE string (zero dependencies, no DOM types in this package) that a carrier serves or injects:
 
-- Alt+Click any element → comment box floats at the cursor.
-- `elementPath` is a CSS path with **same-fragment sibling pinning**: two buttons sharing a tag+class fragment get `:nth-child(n)` suffixes so paths never collapse (the AliothStudio loop learned this the hard way).
-- Field metadata (`fieldName`/`fieldLabel`/`fieldPlaceholder`) and nearby text ride along for agent-side semantic location.
+- Alt+Click any element → comment box floats at the cursor; the target comes from `event.composedPath()`, so a click inside a shadow subtree reports the real inner element, and clicks on the overlay's own chrome are ignored.
+- `elementPath` is a **self-verified CSS path**: the heuristic pins same-fragment siblings with `:nth-child(n)`, is then re-resolved through the document, escalates to an all-`:nth-child(n)` form when ambiguous, and reports the verdict as `pathMatchCount` / `pathMatchesTarget` — ambiguity or non-resolution is data, never a silent first match.
+- Cross-boundary targets are **boundary-encoded**: ` >>> ` enters a shadow root and ` |> ` a same-origin iframe, with the prefix recursing back to the top document so a host-document resolver can walk the whole chain.
+- **Attribute anchors** (`stableSelector`: `data-testid` → `data-test` → `data-qa` → `#id` → `[name]` → `[aria-label]`) survive re-renders, verified unique inside the parsed scope.
+- **Table semantics** (`columnHeader` by colSpan-accumulated column order, `rowKey` from the row's first cell), the **React key chain** (`reactKeyPath`), **scroll/viewport** of the element's own window, field metadata (`fieldName`/`fieldLabel`/`fieldPlaceholder`) and nearby text ride along for agent-side semantic location.
 - `OVERLAY_MARKER` gates double injection; the base URL derives from `window.location` with a loopback fallback.
 
-The overlay POSTs `{ comment, url, element, elementPath, cssClasses, ... }` to `POST /api/feedback/annotations` on the carrier origin — the carrier must allowlist that origin for browser writes.
+The overlay POSTs `{ comment, url, element, elementPath, cssClasses, pathMatchCount, pathMatchesTarget, ... }` to `POST /api/feedback/annotations` on the carrier origin — the carrier must allowlist that origin for browser writes.
 
 ## Resolve verification
 
@@ -112,6 +114,7 @@ Independent. Reading or mutating page annotations does not touch a model request
 - **No model-facing tools here.** Consumer tools are deployment-composed, like `message-feedback`'s model surface.
 - **Evidence is best-effort.** The verifier seam reports anomalies rather than throwing; deployments that require hard evidence gates compose `--strict` semantics at the tool boundary.
 - **Field metadata is best-effort DOM heuristics.** `fieldLabel` resolution depends on conventional label markup; absence degrades to the CSS path alone.
+- **The locating extras are best-effort and optional.** `stableSelector`, `reactKeyPath`, `columnHeader`/`rowKey` and `scroll`/`viewport` are omitted when the markup carries no anchor attribute, no React fiber, no table, or no window; `pathMatchesTarget: false` marks a path that could not be uniquely resolved, and consumers should fall back to `stableSelector` or the semantic anchors rather than take the first match.
 
 Ported from AliothStudio's `scripts/feedback` dev tool protocol (state machine + audit semantics identical); `message-feedback` is the sibling per-message rating service, and page annotations do not interact with message ratings.
 

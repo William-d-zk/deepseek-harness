@@ -4,15 +4,28 @@
  * `page-feedback` store.
  *
  * Interaction: Alt+Click any element → a comment box floats at the cursor →
- * submit POSTs `{ comment, url, element, elementPath, cssClasses, nearbyText,
- * fieldName?, fieldLabel?, fieldPlaceholder? }` to the carrier's
- * `POST /api/feedback/annotations` endpoint (origin-allowlisted there).
+ * submit POSTs `{ comment, url, element, elementPath, cssClasses,
+ * pathMatchCount, pathMatchesTarget, stableSelector?, columnHeader?, rowKey?,
+ * reactKeyPath?, scroll?, viewport?, nearbyText, fieldName?, fieldLabel?,
+ * fieldPlaceholder? }` to the carrier's `POST /api/feedback/annotations`
+ * endpoint (origin-allowlisted there). The click target is taken from
+ * `event.composedPath()` so a click inside a shadow subtree reports the real
+ * inner element, and clicks on the overlay's own chrome are ignored.
  *
- * Positioning is deliberately stronger than a bare CSS dump: sibling elements
- * sharing the same tag+class fragment get a `:nth-child(n)` suffix so two
- * same-class buttons never collapse to one path (the AliothStudio feedback
- * loop learned this the hard way), and nearby text / field metadata ride
- * along for agent-side semantic location.
+ * Positioning is deliberately stronger than a bare CSS dump, and the overlay
+ * *self-verifies* what it emits: the heuristic path (sibling elements sharing
+ * a tag+class fragment get a `:nth-child(n)` suffix so two same-class buttons
+ * never collapse to one path — a real feedback loop learned this the hard way)
+ * is re-resolved through the document before it is sent, escalating to an
+ * all-`:nth-child(n)` form when the heuristic is ambiguous, and reporting the
+ * verdict as `pathMatchCount` / `pathMatchesTarget` rather than letting a
+ * consumer silently take the first match. Cross-boundary targets are encoded
+ * with the shared marker protocol (` >>> ` shadow root, ` |> ` same-origin
+ * iframe) whose prefix recurses back to the top document — a bare
+ * `iframe.x > body > …` concat can never be resolved there, since CSS does not
+ * cross frames. Attribute anchors (`stableSelector`), table row/column
+ * semantics (`rowKey`/`columnHeader`), the React key chain (`reactKeyPath`),
+ * and the scroll/viewport frame ride along for agent-side semantic location.
  *
  * Kept as a template-literal string so the package source stays DOM-free
  * (node:sqlite store package, no DOM lib); the JS is validated by text-level
@@ -84,42 +97,219 @@ export const OVERLAY_JS = `(function () {
     return text.length > 80 ? text.slice(0, 80) + '…' : text
   }
 
-  function cssPath(el) {
-    if (!(el instanceof Element)) return ''
+  var BOUNDARY_SPLIT = /\\s*(?:>>>|\\|>)\\s*/
+  var MAX_PATH_DEPTH = 64
+  var MAX_ATTR_TEXT = 30
+  var HAS_CSS_ESCAPE = typeof CSS !== 'undefined' && !!CSS.escape
+  var STABLE_ATTRS = ['data-testid', 'data-test', 'data-qa']
+
+  function attrLit(name, value) {
+    return '[' + name + '=' + JSON.stringify(value) + ']'
+  }
+
+  function idSelector(tag, id) {
+    return HAS_CSS_ESCAPE ? tag + '#' + CSS.escape(id) : tag + attrLit('id', id)
+  }
+
+  function classSelector(tag, classes) {
+    if (HAS_CSS_ESCAPE) {
+      return tag + classes.map(function (c) { return '.' + CSS.escape(c) }).join('')
+    }
+    return tag + classes.map(function (c) { return '[class~=' + JSON.stringify(c) + ']' }).join('')
+  }
+
+  function classFragment(el) {
+    var out = []
+    if (el.classList) {
+      for (var i = 0; i < el.classList.length && out.length < 3; i += 1) out.push(el.classList.item(i))
+      return out
+    }
+    var parts = (typeof el.className === 'string' ? el.className : '').replace(/\\s+/g, ' ').trim().split(' ')
+    if (parts.length === 1 && !parts[0]) return out
+    for (var j = 0; j < parts.length && out.length < 3; j += 1) out.push(parts[j])
+    return out
+  }
+
+  // Same-fragment siblings collapse to one path — pin the index when any exist.
+  function sameFragmentCount(el, classes) {
+    if (!el.parentElement) return 0
+    var want = classes.join('\\u0000')
+    return Array.prototype.slice.call(el.parentElement.children).filter(function (s) {
+      return s !== el && s.tagName === el.tagName && classFragment(s).join('\\u0000') === want
+    }).length
+  }
+
+  function describe(el, forceIndex) {
+    var tag = el.tagName.toLowerCase()
+    if (el.id) return idSelector(tag, el.id)
+    var classes = classFragment(el)
+    var part = classSelector(tag, classes)
+    var same = sameFragmentCount(el, classes)
+    if (el.parentElement && (forceIndex || same > 0)) {
+      var index = Array.prototype.slice.call(el.parentElement.children).indexOf(el) + 1
+      part += ':nth-child(' + index + ')'
+    }
+    return part
+  }
+
+  function pathWithinRoot(el, forceIndex) {
     var parts = []
     var node = el
-    while (node && node.nodeType === 1 && parts.length < 12) {
-      var tag = node.tagName.toLowerCase()
-      var part = tag
-      if (node.id) {
-        var safeId = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(node.id) : node.id
-        part = tag + '#' + safeId
-        parts.unshift(part)
-        break
-      }
-      var classes = []
-      if (node.className && typeof node.className === 'string') {
-        classes = node.className.trim().split(/\\s+/).slice(0, 3)
-        if (classes.length) part += '.' + classes.join('.')
-      }
-      // Same-fragment siblings collapse to one path — pin the index.
-      var same = 0
-      var index = 0
-      if (node.parentElement) {
-        var kids = Array.prototype.slice.call(node.parentElement.children)
-        index = kids.indexOf(node) + 1
-        same = kids.filter(function (s) {
-          if (s === node) return false
-          if (s.tagName !== node.tagName) return false
-          var sc = (typeof s.className === 'string' ? s.className.trim().split(/\\s+/).slice(0, 3) : [])
-          return sc.join('\\u0000') === classes.join('\\u0000')
-        }).length
-      }
-      if (same > 0) part += ':nth-child(' + index + ')'
-      parts.unshift(part)
+    while (node && node.nodeType === 1 && parts.length < MAX_PATH_DEPTH) {
+      parts.unshift(describe(node, forceIndex))
+      if (node.tagName === 'BODY') break
       node = node.parentElement
     }
     return parts.join(' > ')
+  }
+
+  // Boundary prefix (with trailing marker): shadow host via getRootNode().host,
+  // same-origin frame via frameElement — recursing back to the top document.
+  function boundaryPrefix(el, forceIndex) {
+    var doc = el.ownerDocument
+    if (doc !== document) {
+      var frame = null
+      try { frame = (doc.defaultView && doc.defaultView.frameElement) || null } catch (e) { frame = null }
+      return frame ? scopedPath(frame, forceIndex) + ' |> ' : ''
+    }
+    var node = el
+    while (node) {
+      if (node.parentElement) { node = node.parentElement; continue }
+      var root = node.getRootNode ? node.getRootNode() : null
+      var host = root && root.host
+      if (host) return scopedPath(host, forceIndex) + ' >>> '
+      return ''
+    }
+    return ''
+  }
+
+  function scopedPath(el, forceIndex) {
+    return boundaryPrefix(el, forceIndex) + pathWithinRoot(el, forceIndex)
+  }
+
+  // Boundary-aware resolution: every non-final hop (a shadow/iframe host) must
+  // match exactly once, the final hop reports its total match count.
+  function resolveInDocument(path) {
+    var text = String(path)
+    var hops = text.split(BOUNDARY_SPLIT)
+    var kinds = []
+    var mark
+    var re = new RegExp(BOUNDARY_SPLIT.source, 'g')
+    while ((mark = re.exec(text)) !== null) kinds.push(mark[0].indexOf('>>>') >= 0 ? 'shadow' : 'frame')
+    var root = document
+    for (var i = 0; i < hops.length; i += 1) {
+      var selector = hops[i].trim()
+      if (!root || !selector) return { element: null, matches: 0 }
+      var matches
+      try { matches = root.querySelectorAll(selector) } catch (e) { return { element: null, matches: 0 } }
+      if (i === hops.length - 1) return { element: matches[0] || null, matches: matches.length }
+      if (matches.length !== 1) return { element: null, matches: matches.length }
+      if (kinds[i] === 'shadow') { root = matches[0].shadowRoot || null }
+      else { try { root = matches[0].contentDocument || null } catch (e) { root = null } }
+    }
+    return { element: null, matches: 0 }
+  }
+
+  // Self-verified path: heuristic first, then all-nth-child, then an honest
+  // "not unique" verdict (never a silent first-match).
+  function resolveElementPath(el) {
+    var heuristic = scopedPath(el, false)
+    var first = resolveInDocument(heuristic)
+    if (first.matches === 1 && first.element === el) return { path: heuristic, matchCount: 1, matchesTarget: true }
+    var forced = scopedPath(el, true)
+    var second = resolveInDocument(forced)
+    if (second.matches === 1 && second.element === el) return { path: forced, matchCount: 1, matchesTarget: true }
+    return second.matches > 0
+      ? { path: forced, matchCount: second.matches, matchesTarget: false }
+      : { path: heuristic, matchCount: first.matches, matchesTarget: false }
+  }
+
+  // Re-render-stable attribute anchor, verified unique inside the parsed scope.
+  function stableSelector(el) {
+    var prefix = boundaryPrefix(el, false)
+    var tag = el.tagName.toLowerCase()
+    var candidates = []
+    for (var i = 0; i < STABLE_ATTRS.length; i += 1) {
+      var value = el.getAttribute && el.getAttribute(STABLE_ATTRS[i])
+      if (value) candidates.push(tag + attrLit(STABLE_ATTRS[i], value))
+    }
+    if (el.id) candidates.push(idSelector(tag, el.id))
+    var name = el.getAttribute && el.getAttribute('name')
+    if (name) candidates.push(tag + attrLit('name', name))
+    var ariaLabel = el.getAttribute && el.getAttribute('aria-label')
+    if (ariaLabel) candidates.push(tag + attrLit('aria-label', ariaLabel))
+    for (var j = 0; j < candidates.length; j += 1) {
+      var resolved = resolveInDocument(prefix + candidates[j])
+      if (resolved.matches === 1 && resolved.element === el) return prefix + candidates[j]
+    }
+    return undefined
+  }
+
+  function collapsedText(node) {
+    return node ? String(node.textContent || '').replace(/\\s+/g, ' ').trim() : ''
+  }
+
+  // Table semantics: column header by colSpan-accumulated column order, row key
+  // from the row's first cell — disambiguates same-value cells/rows.
+  function tableMeta(el) {
+    var meta = {}
+    var row = el.closest ? el.closest('tr') : null
+    if (!row) return meta
+    var head = collapsedText(row.querySelector('td, th'))
+    if (head && head.length <= MAX_ATTR_TEXT) meta.rowKey = head
+    if (el.tagName !== 'TD') return meta
+    var index = 0
+    var cells = Array.prototype.slice.call(row.children)
+    for (var i = 0; i < cells.length; i += 1) {
+      if (cells[i] === el) break
+      index += cells[i].colSpan || 1
+    }
+    var table = el.closest ? el.closest('table') : null
+    if (!table) return meta
+    var firstRow = table.rows ? table.rows[0] : null
+    var headRow = (table.tHead && table.tHead.rows[0]) || null
+    if (!headRow && firstRow && firstRow !== row && firstRow.querySelector('th')) headRow = firstRow
+    if (!headRow) return meta
+    var acc = 0
+    var headerCells = Array.prototype.slice.call(headRow.children)
+    for (var j = 0; j < headerCells.length; j += 1) {
+      if (acc === index) {
+        var text = collapsedText(headerCells[j])
+        if (text && text.length <= MAX_ATTR_TEXT) meta.columnHeader = text
+        break
+      }
+      acc += headerCells[j].colSpan || 1
+    }
+    return meta
+  }
+
+  function reactFiberOf(el) {
+    var keys
+    try { keys = Object.keys(el) } catch (e) { return null }
+    for (var i = 0; i < keys.length; i += 1) {
+      if (keys[i].indexOf('__reactFiber$') === 0) return el[keys[i]]
+    }
+    return null
+  }
+
+  // React identity chain (ComponentName#key, cap 8) — best-effort hint for
+  // list/virtualized rows; absent without React fiber.
+  function reactKeyPath(el) {
+    var fiber = reactFiberOf(el)
+    var out = []
+    var lastName
+    while (fiber && out.length < 8) {
+      var type = fiber.type
+      var name = typeof type === 'function' ? (type.displayName || type.name || undefined) : undefined
+      if (name) lastName = name
+      var key = fiber.key
+      if (typeof key === 'string' || typeof key === 'number') {
+        var label = (name || lastName || '?') + '#' + String(key)
+        if (out.indexOf(label) < 0) out.push(label)
+      }
+      fiber = fiber.return || null
+    }
+    return out
   }
 
   function toast(text) {
@@ -133,9 +323,13 @@ export const OVERLAY_JS = `(function () {
   function showBox(target, x, y) {
     var old = document.querySelector('.afb-box')
     if (old) old.remove()
-    var path = cssPath(target)
+    var resolution = resolveElementPath(target)
+    var path = resolution.path
     var meta = fieldMeta(target)
     var nearby = nearbyText(target)
+    var anchors = stableSelector(target)
+    var table = tableMeta(target)
+    var keyPath = reactKeyPath(target)
     var box = document.createElement('div')
     box.className = 'afb-box'
     var title = document.createElement('h4')
@@ -177,7 +371,18 @@ export const OVERLAY_JS = `(function () {
         comment: comment,
         element: target.tagName ? target.tagName.toLowerCase() : '',
         elementPath: path,
-        cssClasses: (typeof target.className === 'string') ? target.className : ''
+        cssClasses: (typeof target.className === 'string') ? target.className : '',
+        pathMatchCount: resolution.matchCount,
+        pathMatchesTarget: resolution.matchesTarget
+      }
+      if (anchors) payload.stableSelector = anchors
+      if (table.columnHeader) payload.columnHeader = table.columnHeader
+      if (table.rowKey) payload.rowKey = table.rowKey
+      if (keyPath.length) payload.reactKeyPath = keyPath
+      var ownWin = target.ownerDocument && target.ownerDocument.defaultView
+      if (ownWin) {
+        payload.scroll = { x: ownWin.scrollX || 0, y: ownWin.scrollY || 0 }
+        payload.viewport = { width: ownWin.innerWidth, height: ownWin.innerHeight }
       }
       if (meta.fieldName) payload.fieldName = meta.fieldName
       if (meta.fieldLabel) payload.fieldLabel = meta.fieldLabel
@@ -196,9 +401,15 @@ export const OVERLAY_JS = `(function () {
 
   document.addEventListener('click', function (event) {
     if (!event.altKey) return
+    // composedPath()[0] is the real inner element behind a shadow boundary;
+    // event.target would be the retargeted host.
+    var path0 = event.composedPath ? event.composedPath()[0] : event.target
+    var target = (path0 && path0.nodeType === 1) ? path0 : event.target
+    // Never annotate the overlay's own chrome (hint / comment box / toast).
+    if (!target || !target.closest || target.closest('.afb-box,.afb-hint,.afb-toast')) return
     event.preventDefault()
     event.stopPropagation()
-    showBox(event.target, event.clientX, event.clientY)
+    showBox(target, event.clientX, event.clientY)
   }, true)
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') {
