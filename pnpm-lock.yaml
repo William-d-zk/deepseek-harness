@@ -114,6 +114,7 @@ overrides:
   typescript: '>=5 <7'
 
 patchedDependencies:
+  '@electron/osx-sign@1.3.3': 280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861
   '@yao-pkg/pkg@6.21.0': 28edd2180c36691c481522ef81f6f6614505f45e491aad542ac4663d4e6b3ff8
   node-pty@1.2.0-beta.15: b40ae545608897914bd25fb009c97eeac478c34e8a910298ddcb01b746534bb0
 
@@ -124,9 +125,6 @@ importers:
       '@deepseek-ai/dsh-agent':
         specifier: workspace:^
         version: link:packages/core/agent
-      '@deepseek-ai/dsh-package-manifest':
-        specifier: workspace:^
-        version: link:packages/util/package-manifest
       '@deepseek-ai/dsh-tool-session-query':
         specifier: workspace:^
         version: link:packages/session-query/tool-session-query
@@ -297,20 +295,20 @@ importers:
         specifier: workspace:^
         version: link:../../../WorkSpace/deepseek-harness/packages/bundle/web-app
       '@dsh-chess/app-session-bridge':
-        specifier: workspace:^
-        version: link:../../../WorkSpace/dsh-chess/packages/app-session-bridge
+        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/app-session-bridge
+        version: file:../dsh-chess/packages/app-session-bridge(@deepseek-ai/cordis@vendor+cordis)
       '@dsh-chess/rchess-agents':
-        specifier: workspace:^
-        version: link:../../../WorkSpace/dsh-chess/packages/rchess-agents
+        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/rchess-agents
+        version: file:../dsh-chess/packages/rchess-agents(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-mcp-client@packages+mcp+mcp-client)(@deepseek-ai/dsh-session-persistence@packages+session+session-persistence)(@deepseek-ai/dsh-system-prompt@packages+core+system-prompt)(@dsh-chess/rchess-core@file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@packages+llm+llm)(supports-color@9.4.0))
       '@dsh-chess/rchess-core':
-        specifier: workspace:^
-        version: link:../../../WorkSpace/dsh-chess/packages/rchess-core
+        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/rchess-core
+        version: file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@packages+llm+llm)(supports-color@9.4.0)
       '@dsh-chess/web-compat':
-        specifier: workspace:^
-        version: link:../../../WorkSpace/dsh-chess/packages/web-compat
+        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/web-compat
+        version: file:../dsh-chess/packages/web-compat(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)
       '@dsh-chess/web-devices':
-        specifier: workspace:^
-        version: link:../../../WorkSpace/dsh-chess/packages/web-devices
+        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/web-devices
+        version: file:../dsh-chess/packages/web-devices(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)(@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-mcp-client@packages+mcp+mcp-client)(@deepseek-ai/dsh-session-persistence@packages+session+session-persistence)(@deepseek-ai/dsh-system-prompt@packages+core+system-prompt)(@dsh-chess/rchess-core@file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@packages+llm+llm)(supports-color@9.4.0)))
     devDependencies:
       '@deepseek-ai/dsh':
         specifier: workspace:^
@@ -972,9 +970,6 @@ importers:
       js-yaml:
         specifier: ^4.2.0
         version: 4.3.1
-      msgpackr:
-        specifier: 2.0.4
-        version: 2.0.4
       pnpm:
         specifier: 11.7.0
         version: 11.7.0
@@ -1467,6 +1462,9 @@ importers:
       '@deepseek-ai/dsh-client-store':
         specifier: workspace:^
         version: link:../../client/store
+      '@deepseek-ai/dsh-client-test-runtime':
+        specifier: workspace:^
+        version: link:../../test-support/client-runtime
       '@deepseek-ai/dsh-commands':
         specifier: workspace:^
         version: link:../../interaction/commands
@@ -1491,6 +1489,9 @@ importers:
       '@deepseek-ai/dsh-permission-presets':
         specifier: workspace:^
         version: link:../../interaction/permission-presets
+      '@deepseek-ai/dsh-remote-mock':
+        specifier: workspace:^
+        version: link:../../test-support/remote-mock
       '@deepseek-ai/dsh-scope':
         specifier: workspace:^
         version: link:../../core/scope
@@ -1604,9 +1605,15 @@ importers:
       '@deepseek-ai/dsh-client-store':
         specifier: workspace:^
         version: link:../../client/store
+      '@deepseek-ai/dsh-client-test-runtime':
+        specifier: workspace:^
+        version: link:../../test-support/client-runtime
       '@deepseek-ai/dsh-host-directory-picker':
         specifier: workspace:^
         version: link:../../host/directory-picker
+      '@deepseek-ai/dsh-remote-mock':
+        specifier: workspace:^
+        version: link:../../test-support/remote-mock
       '@deepseek-ai/dsh-session':
         specifier: workspace:^
         version: link:../../core/session
@@ -2872,6 +2879,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-conversation':
         specifier: workspace:^
         version: link:../ui-conversation
+      '@deepseek-ai/dsh-client-ui-input-trigger':
+        specifier: workspace:^
+        version: link:../ui-input-trigger
       '@deepseek-ai/dsh-client-ui-layout':
         specifier: workspace:^
         version: link:../ui-layout
@@ -3732,6 +3742,9 @@ importers:
       '@deepseek-ai/dsh-permission-presets':
         specifier: workspace:^
         version: link:../../interaction/permission-presets
+      '@deepseek-ai/dsh-remote-mock':
+        specifier: workspace:^
+        version: link:../../test-support/remote-mock
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.18
@@ -3885,6 +3898,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-primitives':
         specifier: workspace:^
         version: link:../ui-primitives
+      '@deepseek-ai/dsh-client-ui-sidebar-right':
+        specifier: workspace:^
+        version: link:../ui-sidebar-right
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:^
         version: link:../ui-slots
@@ -4093,6 +4109,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:^
         version: link:../ui-slots
+      '@deepseek-ai/dsh-remote-mock':
+        specifier: workspace:^
+        version: link:../../test-support/remote-mock
       '@deepseek-ai/dsh-settings':
         specifier: workspace:^
         version: link:../../settings/settings
@@ -4138,6 +4157,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:^
         version: link:../ui-slots
+      '@deepseek-ai/dsh-remote-mock':
+        specifier: workspace:^
+        version: link:../../test-support/remote-mock
       '@deepseek-ai/dsh-util-values':
         specifier: workspace:^
         version: link:../../util/values
@@ -4519,6 +4541,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-renderer':
         specifier: workspace:^
         version: link:../ui-renderer
+      '@deepseek-ai/dsh-client-ui-sidebar-right':
+        specifier: workspace:^
+        version: link:../ui-sidebar-right
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:^
         version: link:../ui-slots
@@ -4528,6 +4553,9 @@ importers:
       '@deepseek-ai/dsh-session':
         specifier: workspace:^
         version: link:../../core/session
+      '@deepseek-ai/dsh-util-workspace-path':
+        specifier: workspace:^
+        version: link:../../util/workspace-path
       '@testing-library/react':
         specifier: ^16.1.0
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -6148,9 +6176,6 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-package-manifest':
-        specifier: workspace:^
-        version: link:../../util/package-manifest
       '@types/js-yaml':
         specifier: ^4.0.9
         version: 4.0.9
@@ -7924,6 +7949,9 @@ importers:
 
   packages/plan/plan-mode:
     dependencies:
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:^
+        version: link:../../util/brand
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -10506,6 +10534,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      js-yaml:
+        specifier: ^4.2.0
+        version: 4.3.1
       vitest:
         specifier: ^5.0.0
         version: 5.0.0(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@5.0.0)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.2.2(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
@@ -10513,6 +10544,18 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
+      '@deepseek-ai/cordis-plugin-include':
+        specifier: workspace:^
+        version: link:../../../vendor/include
+      '@deepseek-ai/cordis-plugin-loader':
+        specifier: workspace:^
+        version: link:../../../vendor/loader
+      '@deepseek-ai/dsh-api-gateway':
+        specifier: workspace:^
+        version: link:../../api/gateway
+      '@deepseek-ai/dsh-api-remotes':
+        specifier: workspace:^
+        version: link:../../api/remotes
       '@deepseek-ai/dsh-api-session-controller':
         specifier: workspace:^
         version: link:../../api/session-controller
@@ -10522,9 +10565,21 @@ importers:
       '@deepseek-ai/dsh-attachment':
         specifier: workspace:^
         version: link:../../attachment/attachment
+      '@deepseek-ai/dsh-base':
+        specifier: workspace:^
+        version: link:../../bundle/base
       '@deepseek-ai/dsh-client-connection':
         specifier: workspace:^
         version: link:../../client/connection
+      '@deepseek-ai/dsh-client-hmr':
+        specifier: workspace:^
+        version: link:../../client/hmr
+      '@deepseek-ai/dsh-client-locale':
+        specifier: workspace:^
+        version: link:../../client/locale
+      '@deepseek-ai/dsh-client-modules':
+        specifier: workspace:^
+        version: link:../../client/modules
       '@deepseek-ai/dsh-client-store':
         specifier: workspace:^
         version: link:../../client/store
@@ -10549,15 +10604,30 @@ importers:
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:^
         version: link:../../client/ui-slots
+      '@deepseek-ai/dsh-client-web':
+        specifier: workspace:^
+        version: link:../../client/web
+      '@deepseek-ai/dsh-remote-mock':
+        specifier: workspace:^
+        version: link:../remote-mock
       '@deepseek-ai/dsh-session':
         specifier: workspace:^
         version: link:../../core/session
+      '@deepseek-ai/dsh-settings':
+        specifier: workspace:^
+        version: link:../../settings/settings
       '@deepseek-ai/dsh-subagent':
         specifier: workspace:^
         version: link:../../subagent/subagent
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:^
         version: link:../../typert/protocol
+      '@deepseek-ai/dsh-web-app':
+        specifier: workspace:^
+        version: link:../../bundle/web-app
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.18
@@ -10629,6 +10699,28 @@ importers:
       '@deepseek-ai/dsh-session':
         specifier: workspace:^
         version: link:../../core/session
+
+  packages/test-support/remote-mock:
+    dependencies:
+      '@vitest/spy':
+        specifier: ^4.1.8
+        version: 4.1.11
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-api-settings-controller':
+        specifier: workspace:^
+        version: link:../../api/settings-controller
+      '@deepseek-ai/dsh-client-connection':
+        specifier: workspace:^
+        version: link:../../client/connection
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      typescript:
+        specifier: '>=5 <7'
+        version: 6.0.3
 
   packages/test-support/session-snapshot:
     dependencies:
@@ -14080,6 +14172,11 @@ packages:
       search-insights:
         optional: true
 
+  '@dsh-chess/app-session-bridge@file:../dsh-chess/packages/app-session-bridge':
+    resolution: {directory: ../dsh-chess/packages/app-session-bridge, type: directory}
+    peerDependencies:
+      '@deepseek-ai/cordis': workspace:^
+
   '@dsh-chess/app-sessions@file:../dsh-chess/packages/app-sessions':
     resolution: {directory: ../dsh-chess/packages/app-sessions, type: directory}
     peerDependencies:
@@ -14118,6 +14215,19 @@ packages:
       '@deepseek-ai/dsh-tools': workspace:^
       '@dsh-chess/rchess-agents': '>=0.1.0'
       '@dsh-chess/rchess-core': '>=0.1.0'
+
+  '@dsh-chess/web-compat@file:../dsh-chess/packages/web-compat':
+    resolution: {directory: ../dsh-chess/packages/web-compat, type: directory}
+    peerDependencies:
+      '@deepseek-ai/cordis': workspace:^
+      '@deepseek-ai/dsh-host-webserver': workspace:^
+
+  '@dsh-chess/web-devices@file:../dsh-chess/packages/web-devices':
+    resolution: {directory: ../dsh-chess/packages/web-devices, type: directory}
+    peerDependencies:
+      '@deepseek-ai/cordis': workspace:^
+      '@deepseek-ai/dsh-host-webserver': workspace:^
+      '@dsh-chess/rchess-agents': '>=0.1.0'
 
   '@earendil-works/pi-ai@0.84.4':
     resolution: {integrity: sha512-AClAZxf5+c4RRu44NJPS6wyQy+Nmq+Mzyyrdvm4ZVMNuixelO02RZX4G4Aq1F145Yzp43wnM5S+hLlSI7ypfVw==}
@@ -15136,36 +15246,6 @@ packages:
   '@modelcontextprotocol/server-filesystem@2026.7.10':
     resolution: {integrity: sha512-Mmjg4anFBD5OzbPnGJOA0jPPN8645ERhQk38HQLpSenx1ox9bfdPkmAzUnNjeQtqQGFLtKe13J20RtLBmUKMZA==}
     hasBin: true
-
-  '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
-    resolution: {integrity: sha512-LCkGo6JDfaBhgST7UpPWgNgLINpcpabaHfyz5OBx75nUYxBsaEPxjnyNjWpeb/xBup/682QnBfRBy2/LvPutZQ==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@msgpackr-extract/msgpackr-extract-darwin-x64@3.0.4':
-    resolution: {integrity: sha512-zExlW9zUJKZH/tOtVMttwjKa4Xm/3KcNjnE3dPN92uCktwavMxpgCA3MoJK/DOnTWsQgo224OaST27/mPNAf+w==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@msgpackr-extract/msgpackr-extract-linux-arm64@3.0.4':
-    resolution: {integrity: sha512-dgX0P/9wGPJeHFBG+ZmhgE6bmtMt7NP5CRBGyyktpopdk/mW4POnrpQsSLtKI1dwpc+pPLuXHDh6vvskyQE/sw==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@msgpackr-extract/msgpackr-extract-linux-arm@3.0.4':
-    resolution: {integrity: sha512-Tg3yX65f5GbtXLkrYEHE5oibZG9epyYWas7FogTTEJeDEF9JlXJzKgXaNhT3UXlTOeA+AfZpYZYZ0uPj7Cfquw==}
-    cpu: [arm]
-    os: [linux]
-
-  '@msgpackr-extract/msgpackr-extract-linux-x64@3.0.4':
-    resolution: {integrity: sha512-8TNXMEjJc3QEy7R/x1INhgiU+XakDAFUzBhaz7+Rbrs8NH5UQeHQxxmzsSBJGyV6I1jW79undiQm8tOI+D+8FQ==}
-    cpu: [x64]
-    os: [linux]
-
-  '@msgpackr-extract/msgpackr-extract-win32-x64@3.0.4':
-    resolution: {integrity: sha512-CmCXPQrkbwExx3j946/PtHWHbYJiCRBRDl4BlkRQcJB/YOwQxJRTpoo7aTsortjgoJ1x7opzTSxn7C+ASSLVjQ==}
-    cpu: [x64]
-    os: [win32]
 
   '@napi-rs/canvas-android-arm64@1.0.9':
     resolution: {integrity: sha512-4LGXk2/0HVzE29K8SzML5WubgCp++B1FH3qgl35XmSZE+lLdr6P9VRQEnZ0MCLZMTSuJP41yyhtoiVNEuvrTIA==}
@@ -16539,6 +16619,9 @@ packages:
         optional: true
       vite:
         optional: true
+
+  '@vitest/spy@4.1.11':
+    resolution: {integrity: sha512-apNa/prQy2qCeywhnixOHPRCgGNhvg7T4Dapfl1GahLp/R+uhBm5cPyFoNVyqsNd2h1nJxL6BqqdIjiABL60YA==}
 
   '@vitest/spy@5.0.0':
     resolution: {integrity: sha512-uy+luWBAPw9XfthoHi5AkfHUnuPYEESjl0p/r+meoBnU8bxg5GDQ3Ey8MjcJ6sqahkL4PFyrvfMJJBw7LbU06g==}
@@ -18935,13 +19018,6 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  msgpackr-extract@3.0.4:
-    resolution: {integrity: sha512-4kmO/MdyUIkLIvTPr8VHLil4AtoKIoniWPIEk5+CDy0xnWC84azhSFmuJ7PxZdsYtiP5kEeQsORAVIeMgxT+Hw==}
-    hasBin: true
-
-  msgpackr@2.0.4:
-    resolution: {integrity: sha512-o1C5KRmuRt+apqMr1HuGSqWStZoRBUpEsCsl15uM9VdAF1qHLtvMOU2En747EnTyEl6c4pzPewRMFF31s1CNbA==}
-
   multistream@4.1.0:
     resolution: {integrity: sha512-J1XDiAmmNpRCBfIWJv+n0ymC4ABcf/Pl+5YvC5B/D2f/2+8PtHvCNxMPKiQcZyi922Hq69J2YOpb1pTywfifyw==}
 
@@ -19043,10 +19119,6 @@ packages:
   node-fetch@3.3.2:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
-
-  node-gyp-build-optional-packages@5.2.2:
-    resolution: {integrity: sha512-s+w+rBWnpTMwSFbaE0UXsRlg7hU4FjekKU4eyAih5T8nJuNZT1nNsskXpxmeqSK9UzkBl6UgRlnKc8hz8IEqOw==}
-    hasBin: true
 
   node-gyp@12.4.0:
     resolution: {integrity: sha512-OMcPNvqTCFUnNaBlmdgq+lfNqY7gTiSmNRDjY3uAXRyudeKZEZxu3CLtjMQrx4zZxCX2b/mpNqTtwuCJgXhHkw==}
@@ -24303,6 +24375,11 @@ snapshots:
     transitivePeerDependencies:
       - '@algolia/client-search'
 
+  '@dsh-chess/app-session-bridge@file:../dsh-chess/packages/app-session-bridge(@deepseek-ai/cordis@vendor+cordis)':
+    dependencies:
+      '@deepseek-ai/cordis': link:vendor/cordis
+      '@deepseek-ai/schemastery': link:vendor/schemastery
+
   '@dsh-chess/app-sessions@file:../dsh-chess/packages/app-sessions(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-invariants@packages+runtime-diagnostics+invariants)(@deepseek-ai/dsh-llm@0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis))(@deepseek-ai/dsh-scope@packages+core+scope)(@deepseek-ai/dsh-session-projection@packages+session+session-projection)(@deepseek-ai/dsh-session@0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-scope@packages+core+scope))(@deepseek-ai/dsh-system-prompt@0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-invariants@packages+runtime-diagnostics+invariants)(@deepseek-ai/dsh-llm@0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis))(@deepseek-ai/dsh-scope@packages+core+scope))(@deepseek-ai/dsh-typert-protocol@packages+typert+protocol))(@deepseek-ai/dsh-tools@0.1.2-alpha.5(17db9fb89f6f1e6f7c780d6d25f67a58))':
     dependencies:
       '@deepseek-ai/cordis': link:vendor/cordis
@@ -24320,10 +24397,32 @@ snapshots:
       '@deepseek-ai/schemastery': link:vendor/schemastery
       '@dsh-chess/rchess-core': file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis))(supports-color@9.4.0)
 
+  '@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-mcp-client@packages+mcp+mcp-client)(@deepseek-ai/dsh-session-persistence@packages+session+session-persistence)(@deepseek-ai/dsh-system-prompt@packages+core+system-prompt)(@dsh-chess/rchess-core@file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@packages+llm+llm)(supports-color@9.4.0))':
+    dependencies:
+      '@deepseek-ai/cordis': link:vendor/cordis
+      '@deepseek-ai/dsh-agent': link:packages/core/agent
+      '@deepseek-ai/dsh-llm': link:packages/llm/llm
+      '@deepseek-ai/dsh-mcp-client': link:packages/mcp/mcp-client
+      '@deepseek-ai/dsh-session-persistence': link:packages/session/session-persistence
+      '@deepseek-ai/dsh-system-prompt': link:packages/core/system-prompt
+      '@deepseek-ai/schemastery': link:vendor/schemastery
+      '@dsh-chess/rchess-core': file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@packages+llm+llm)(supports-color@9.4.0)
+
   '@dsh-chess/rchess-core@file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis))(supports-color@9.4.0)':
     dependencies:
       '@deepseek-ai/cordis': link:vendor/cordis
       '@deepseek-ai/dsh-llm': 0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis)
+      '@deepseek-ai/schemastery': link:vendor/schemastery
+      mqtt: 5.15.2(supports-color@9.4.0)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  '@dsh-chess/rchess-core@file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@packages+llm+llm)(supports-color@9.4.0)':
+    dependencies:
+      '@deepseek-ai/cordis': link:vendor/cordis
+      '@deepseek-ai/dsh-llm': link:packages/llm/llm
       '@deepseek-ai/schemastery': link:vendor/schemastery
       mqtt: 5.15.2(supports-color@9.4.0)
     transitivePeerDependencies:
@@ -24345,6 +24444,19 @@ snapshots:
       '@deepseek-ai/schemastery': link:vendor/schemastery
       '@dsh-chess/rchess-agents': file:../dsh-chess/packages/rchess-agents(032cd1d42cec3372408ee771b1db6d59)
       '@dsh-chess/rchess-core': file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@0.1.2-alpha.5(@deepseek-ai/cordis@vendor+cordis))(supports-color@9.4.0)
+
+  '@dsh-chess/web-compat@file:../dsh-chess/packages/web-compat(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)':
+    dependencies:
+      '@deepseek-ai/cordis': link:vendor/cordis
+      '@deepseek-ai/dsh-host-webserver': link:packages/host/webserver
+      '@deepseek-ai/schemastery': link:vendor/schemastery
+
+  '@dsh-chess/web-devices@file:../dsh-chess/packages/web-devices(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)(@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-mcp-client@packages+mcp+mcp-client)(@deepseek-ai/dsh-session-persistence@packages+session+session-persistence)(@deepseek-ai/dsh-system-prompt@packages+core+system-prompt)(@dsh-chess/rchess-core@file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@packages+llm+llm)(supports-color@9.4.0)))':
+    dependencies:
+      '@deepseek-ai/cordis': link:vendor/cordis
+      '@deepseek-ai/dsh-host-webserver': link:packages/host/webserver
+      '@deepseek-ai/schemastery': link:vendor/schemastery
+      '@dsh-chess/rchess-agents': file:../dsh-chess/packages/rchess-agents(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-mcp-client@packages+mcp+mcp-client)(@deepseek-ai/dsh-session-persistence@packages+session+session-persistence)(@deepseek-ai/dsh-system-prompt@packages+core+system-prompt)(@dsh-chess/rchess-core@file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-llm@packages+llm+llm)(supports-color@9.4.0))
 
   '@earendil-works/pi-ai@0.84.4(@modelcontextprotocol/sdk@1.29.0(supports-color@9.4.0)(zod@4.4.3))(supports-color@9.4.0)(ws@8.21.0)(zod@4.4.3)':
     dependencies:
@@ -24439,7 +24551,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/osx-sign@1.3.3(supports-color@9.4.0)':
+  '@electron/osx-sign@1.3.3(patch_hash=280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861)(supports-color@9.4.0)':
     dependencies:
       compare-version: 0.1.2
       debug: 4.4.3(supports-color@9.4.0)
@@ -25192,24 +25304,6 @@ snapshots:
       - '@cfworker/json-schema'
       - supports-color
       - zod
-
-  '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
-    optional: true
-
-  '@msgpackr-extract/msgpackr-extract-darwin-x64@3.0.4':
-    optional: true
-
-  '@msgpackr-extract/msgpackr-extract-linux-arm64@3.0.4':
-    optional: true
-
-  '@msgpackr-extract/msgpackr-extract-linux-arm@3.0.4':
-    optional: true
-
-  '@msgpackr-extract/msgpackr-extract-linux-x64@3.0.4':
-    optional: true
-
-  '@msgpackr-extract/msgpackr-extract-win32-x64@3.0.4':
-    optional: true
 
   '@napi-rs/canvas-android-arm64@1.0.9':
     optional: true
@@ -26367,6 +26461,8 @@ snapshots:
     optionalDependencies:
       vite: 8.2.2(@types/node@26.4.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
 
+  '@vitest/spy@4.1.11': {}
+
   '@vitest/spy@5.0.0': {}
 
   '@vscode/ripgrep-darwin-arm64@1.18.0':
@@ -26648,7 +26744,7 @@ snapshots:
       '@electron/fuses': 1.8.0
       '@electron/get': 3.1.0(supports-color@9.4.0)
       '@electron/notarize': 2.5.0(supports-color@9.4.0)
-      '@electron/osx-sign': 1.3.3(supports-color@9.4.0)
+      '@electron/osx-sign': 1.3.3(patch_hash=280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861)(supports-color@9.4.0)
       '@electron/rebuild': 4.2.0(supports-color@9.4.0)
       '@electron/universal': 2.0.3(supports-color@9.4.0)
       '@malept/flatpak-bundler': 0.4.0(supports-color@9.4.0)
@@ -29196,22 +29292,6 @@ snapshots:
 
   ms@2.1.3: {}
 
-  msgpackr-extract@3.0.4:
-    dependencies:
-      node-gyp-build-optional-packages: 5.2.2
-    optionalDependencies:
-      '@msgpackr-extract/msgpackr-extract-darwin-arm64': 3.0.4
-      '@msgpackr-extract/msgpackr-extract-darwin-x64': 3.0.4
-      '@msgpackr-extract/msgpackr-extract-linux-arm': 3.0.4
-      '@msgpackr-extract/msgpackr-extract-linux-arm64': 3.0.4
-      '@msgpackr-extract/msgpackr-extract-linux-x64': 3.0.4
-      '@msgpackr-extract/msgpackr-extract-win32-x64': 3.0.4
-    optional: true
-
-  msgpackr@2.0.4:
-    optionalDependencies:
-      msgpackr-extract: 3.0.4
-
   multistream@4.1.0:
     dependencies:
       once: 1.4.0
@@ -29301,11 +29381,6 @@ snapshots:
       data-uri-to-buffer: 4.0.1
       fetch-blob: 3.2.0
       formdata-polyfill: 4.0.10
-
-  node-gyp-build-optional-packages@5.2.2:
-    dependencies:
-      detect-libc: 2.1.2
-    optional: true
 
   node-gyp@12.4.0:
     dependencies:
