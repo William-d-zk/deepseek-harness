@@ -28,6 +28,15 @@
     // not declaration path aliases, keep each package/vendor source compiled
     // under its own tsconfig boundary.
     "paths": {
+      // Playwright drives the browser suites under apps/web and benchmarks.
+      // This checkout is also a pnpm workspace member of consumer workspaces
+      // (dsh-alioth links ../deepseek-harness/packages/*), and an install there
+      // can repoint shared links at the consumer store, resolving a second
+      // playwright build: the same runtime object then carries foreign types
+      // and the host typecheck fails on cross-store type identity. Pin the
+      // specifier to this checkout's own install so every program here sees
+      // exactly one playwright.
+      "playwright": ["./apps/web/node_modules/playwright"],
       "@deepseek-ai/cordis": ["./vendor/cordis/src"],
       "@deepseek-ai/cosmokit": ["./vendor/cosmokit/src"],
       "@deepseek-ai/schemastery": ["./vendor/schemastery/src"],
