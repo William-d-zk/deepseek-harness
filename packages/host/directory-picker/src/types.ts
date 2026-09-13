@@ -36,4 +36,11 @@ export interface DirectoryListing {
    * the name-sorted tail (hidden rows count toward the bound).
    */
   truncated: boolean
+  /**
+   * Navigation lock the backend imposes on this picker — e.g. a per-account
+   * namespace. While set, browsers present the path as read-only instead of
+   * offering a text editor whose refused input would look like a broken
+   * field, and surface `note` as the operator-facing reason.
+   */
+  lockedRoot?: { readonly path: string; readonly note: string }
 }

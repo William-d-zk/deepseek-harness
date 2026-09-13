@@ -772,6 +772,10 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   // committing actions must not act on the previous selection/listing while
   // a different path is displayed.
   const draftPending = pathDraft !== null
+  // The backend may lock navigation to one subtree (e.g. a signed-in
+  // account's namespace). While locked, the path stays presentation-only:
+  // an editor whose refused input silently reverts reads as a broken field.
+  const locked = parent?.lockedRoot ?? null
 
   return (
     <Modal
@@ -830,7 +834,10 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         }}
       >
         <div className={css.header}>
-          <h2 className={css.title}>{t('browser.title')}</h2>
+          <h2 className={css.title}>
+            {t('browser.title')}
+            {locked !== null && <span className={css.lockNote}>{locked.note}</span>}
+          </h2>
           <div className={css.crumbBar}>
             {pathDraft === null
               ? (
@@ -855,39 +862,42 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                     * the editor, and the pencil glyph parked at its right
                     * edge (with the same tooltip) is what says so — an
                     * invisible target the operator must guess at is the one
-                    * way into typing a path. */}
-                  <button
-                    type="button"
-                    className={css.crumbEditZone}
-                    aria-label={t('browser.editPath')}
-                    title={t('browser.editPath')}
-                    // Stays available with no listed level: when the home
-                    // listing itself fails, typing an absolute path is the one
-                    // remaining way forward.
-                    disabled={parentInert}
-                    ref={editZoneRef}
-                    onClick={() => {
-                    // Opening the editor supersedes any pending listing: a
-                    // settlement landing before the first keystroke would
-                    // otherwise close the editor via navigate's draft reset.
-                      supersede()
-                      setLoading(false)
-                      previewSuspended.current = false
-                      // Seed with a trailing separator so typing immediately
-                      // continues into child names (and prefix-filters below).
-                      // No listed level means nothing to seed from (the editor
-                      // is the recovery path for a failed home listing).
-                      if (parent === null) {
-                        setPathDraft('')
-                        return
-                      }
-                      const base = selected?.path ?? parent.path
-                      const sep = separatorOf(parent)
-                      setPathDraft(base.endsWith(sep) ? base : `${base}${sep}`)
-                    }}
-                  >
-                    <IconEditOutline16 size={14} className={css.crumbEditGlyph} />
-                  </button>
+                    * way into typing a path. Withdrawn while the backend
+                    * locks navigation (the lock note stands in its place). */}
+                  {locked === null && (
+                    <button
+                      type="button"
+                      className={css.crumbEditZone}
+                      aria-label={t('browser.editPath')}
+                      title={t('browser.editPath')}
+                      // Stays available with no listed level: when the home
+                      // listing itself fails, typing an absolute path is the one
+                      // remaining way forward.
+                      disabled={parentInert}
+                      ref={editZoneRef}
+                      onClick={() => {
+                        // Opening the editor supersedes any pending listing: a
+                        // settlement landing before the first keystroke would
+                        // otherwise close the editor via navigate's draft reset.
+                        supersede()
+                        setLoading(false)
+                        previewSuspended.current = false
+                        // Seed with a trailing separator so typing immediately
+                        // continues into child names (and prefix-filters below).
+                        // No listed level means nothing to seed from (the editor
+                        // is the recovery path for a failed home listing).
+                        if (parent === null) {
+                          setPathDraft('')
+                          return
+                        }
+                        const base = selected?.path ?? parent.path
+                        const sep = separatorOf(parent)
+                        setPathDraft(base.endsWith(sep) ? base : `${base}${sep}`)
+                      }}
+                    >
+                      <IconEditOutline16 size={14} className={css.crumbEditGlyph} />
+                    </button>
+                  )}
                 </>
               )
               : (

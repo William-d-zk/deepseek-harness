@@ -132,6 +132,30 @@ describe('DirectoryBrowser', () => {
     expect(screen.queryByRole('button', { name: '/' })).toBeNull()
   })
 
+  it('withdraws the path editor and states the reason while the backend locks navigation', async () => {
+    // A locked backend refuses paths outside its subtree; leaving the editor
+    // up makes a refused path look like a field that cannot be edited at all.
+    // The lock rides every listing the backend serves, so it survives
+    // navigation.
+    const note = 'locked to this account namespace'
+    mount({
+      listDirectory: vi.fn(async (path?: string) => ({
+        ...await listingFor(path),
+        lockedRoot: { path: HOME, note },
+      })),
+    })
+    await waitFor(() => { expect(screen.getByText(note)).toBeTruthy() })
+    expect(screen.getByRole('button', { name: 'browser.home' })).toBeTruthy()
+    expect(screen.queryByLabelText('browser.editPath')).toBeNull()
+
+    // Navigating one level deeper keeps both the withdrawn editor and the
+    // stated reason.
+    fireEvent.click(rowButton(screen.getByRole('listitem')))
+    await waitFor(() => { expect(columns()).toHaveLength(2) })
+    expect(screen.getByText(note)).toBeTruthy()
+    expect(screen.queryByLabelText('browser.editPath')).toBeNull()
+  })
+
   it('shows hidden entries when the toggle is on and hides them again on close', async () => {
     const b = mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
