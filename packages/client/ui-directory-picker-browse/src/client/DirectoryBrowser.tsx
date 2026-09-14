@@ -273,8 +273,11 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
 
 /**
  * AppCreator picker mode (deployment opt-in via localStorage flag set by the
- * dsh-alioth web gate script): the browser lists apps under a namespace, so
- * folder-creation and hidden-file controls are meaningless and hidden.
+ * dsh-alioth web gate script): the browser lists apps under a namespace. The
+ * hidden-file control is meaningless there and hidden; creation stays, because
+ * 添加工作区就是创建新应用 — the backend turns the gesture into a new app
+ * workspace (`Pre-Proc/<namespace>/Apps/<name>`), so it is offered and labelled
+ * as an app rather than a folder.
  */
 function appPickingMode(): boolean {
   try {
@@ -290,6 +293,8 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   const [parent, setParent] = useState<DirectoryListing | null>(null)
   const [selected, setSelected] = useState<DirectoryEntry | null>(null)
   const [child, setChild] = useState<DirectoryListing | null>(null)
+  // AppCreator mode: see appPickingMode — creation becomes "new app".
+  const appPicking = appPickingMode()
   const [loading, setLoading] = useState(false)
   // Derived from `loading` and `scanWindow` by the slow-scan effect below:
   // true only once the current listing call has been in flight for
@@ -986,18 +991,18 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
           {error !== null && <div className={css.error} role="alert">{error}</div>}
         </div>
         <div className={css.footerBar}>
-          {!appPickingMode() && <>
-            <Button
-              variant="outline"
-              icon={<IconPlusOutline16 size={14} />}
-              disabled={parent === null || loading || parentInert || draftPending}
-              onClick={() => {
-                setFolderDraft('')
-                setCreateError(null)
-              }}
-            >
-              {t('browser.newFolder')}
-            </Button>
+          <Button
+            variant="outline"
+            icon={<IconPlusOutline16 size={14} />}
+            disabled={parent === null || loading || parentInert || draftPending}
+            onClick={() => {
+              setFolderDraft('')
+              setCreateError(null)
+            }}
+          >
+            {t(appPicking ? 'browser.newApp' : 'browser.newFolder')}
+          </Button>
+          {!appPicking && <>
             <button
               type="button"
               className={clsx(css.showHiddenToggle, showHidden && css.showHiddenToggleActive)}
@@ -1033,18 +1038,20 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       <Modal
         open={folderDraft !== null}
         onClose={() => { if (!creatingFolder) setFolderDraft(null) }}
-        title={t('browser.newFolder')}
+        title={t(appPicking ? 'browser.newApp' : 'browser.newFolder')}
         className={clsx(css.createDialog)}
         headless
       >
         <div className={css.createBody}>
-          <h3 className={css.createTitle}>{t('browser.newFolder')}</h3>
-          <p className={css.createIn}>{t('browser.createIn', { name: targetName })}</p>
+          <h3 className={css.createTitle}>{t(appPicking ? 'browser.newApp' : 'browser.newFolder')}</h3>
+          <p className={css.createIn}>{
+            t(appPicking ? 'browser.createAppIn' : 'browser.createIn', { name: targetName })
+          }</p>
           <input
             className={css.createInput}
             value={folderDraft ?? ''}
-            aria-label={t('browser.folderName')}
-            placeholder={t('browser.untitledFolder')}
+            aria-label={t(appPicking ? 'browser.appName' : 'browser.folderName')}
+            placeholder={t(appPicking ? 'browser.untitledApp' : 'browser.untitledFolder')}
             autoFocus
             disabled={creatingFolder}
             onChange={(event) => { setFolderDraft(event.target.value) }}

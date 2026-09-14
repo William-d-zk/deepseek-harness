@@ -1795,13 +1795,27 @@ describe('AppCreator app-picking mode', () => {
     expect(screen.getByRole('button', { name: 'browser.showHidden' })).toBeTruthy()
   })
 
-  it('hides those controls while the gate script marks the picker app-scoped', async () => {
+  it('offers app creation, and no hidden-file control, while the gate script marks the picker app-scoped', async () => {
     globalThis.localStorage.setItem('dsh.uiWorkspace.appPicking', '1')
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    // 添加工作区 = 新建应用: creation survives, labelled as an app workspace.
+    expect(screen.getByRole('button', { name: 'browser.newApp' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'browser.newFolder' })).toBeNull()
+    // An app level has no hidden entries: that control stays out.
     expect(screen.queryByRole('button', { name: 'browser.showHidden' })).toBeNull()
     // The dialog stays operational: dismissing is still offered.
     expect(screen.getByRole('button', { name: 'browser.cancel' })).toBeTruthy()
+  })
+
+  it('names the created workspace an app in the app-scoped dialog', async () => {
+    globalThis.localStorage.setItem('dsh.uiWorkspace.appPicking', '1')
+    mount()
+    await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
+    fireEvent.click(screen.getByRole('button', { name: 'browser.newApp' }))
+    // The dialog speaks in app terms: its own title and the name field.
+    await waitFor(() => { expect(screen.getByRole('dialog', { name: 'browser.newApp' })).toBeTruthy() })
+    expect(screen.getByLabelText('browser.appName')).toBeTruthy()
+    expect(screen.queryByLabelText('browser.folderName')).toBeNull()
   })
 })
