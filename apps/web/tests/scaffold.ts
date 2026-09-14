@@ -90,25 +90,6 @@ import type {} from '@deepseek-ai/dsh-agent'
 import { provideCmdline } from '@deepseek-ai/dsh-cmdline'
 import { REPO_ROOT, requireDist } from './support.ts'
 
-// Host-side web e2e cannot import a browser package: doing so would pull that
-// package's complete TS project into this graph. Mirrored from
-// packages/client/ui-settings-models/src/onboarding-copy.ts; drift makes the
-// default pre-acknowledgement stop suppressing the notice and fails loudly.
-// import {
-//   WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_SETTINGS_NAMESPACE,
-//   WELCOME_NOTICE_VERSION, WELCOME_NOTICE_COPY,
-// } from '@deepseek-ai/dsh-client-ui-settings-models'
-export const WELCOME_NOTICE_SETTINGS_NAMESPACE = 'ui-onboarding'
-export const WELCOME_NOTICE_ACK_FIELD = 'welcomeNoticeVersion'
-export const WELCOME_NOTICE_VERSION = '2026-08-13.1'
-export const WELCOME_NOTICE_COPY = {
-  zh: {
-    title: '内测声明',
-    body: 'DeepSeek Harness 目前的 0.1 版本仍处在面向 Harness 开发者进行测试的阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者的反馈建议。预计 DeepSeek Harness 的核心插件以及基础 API 都会在接下来的一段时间内快速迭代、持续演化。\n\n我们期待与全球开发者一起，在开源、开放、可复用、可组合的基础设施之上，共同探索智能上限。欢迎全球 Harness 开发者加入 DSH 插件生态。',
-    continueLabel: '继续',
-  },
-} as const
-
 /** Snapshot mode for the lane, from $DSH_SNAPSHOT (same vocabulary as the other snapshot suites). */
 export type WebSnapshotMode = 'replay' | 'record' | 'refresh'
 
@@ -361,8 +342,6 @@ export interface LaunchOptions {
    * keyless first-run configuration lane; the default disables the adapter.
    */
   deepSeekMissingCredential?: boolean
-  /** Leave the current welcome notice pending; ordinary scenarios pre-acknowledge it before browser boot. */
-  welcomeNoticePending?: boolean
   /**
    * Patch the shipped DeepSeek search row to a deterministic endpoint and
    * credential reference. Browser search scenarios keep the real provider and
@@ -396,12 +375,6 @@ export interface LaunchOptions {
   telemetryMode?: 'FEEDBACK_ONLY'
   /** SDK batch cadence for a scenario-owned collector; omitted to retain the SDK default. */
   telemetryScheduledDelayMillis?: number
-  /**
-   * Browse through a trusted non-loopback hostname that the browser resolves
-   * to loopback (for example `*.localhost`). The test server stays bound to
-   * 127.0.0.1; a non-resolving authority fails before Host trust is exercised.
-   */
-  remoteAuthority?: string
   /** Reuse an existing harness home so a second Host can verify user settings across origins. */
   harnessHome?: string
 }
@@ -430,7 +403,6 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     ? undefined
     : await Promise.all(options.replayChildFixtures.map(path => selectedSessionFixture(path)))
   const compareReplaySession = options.compareReplaySession ?? await ownsReplayFixture(replayFixture)
-  const browserHost = options.remoteAuthority ?? '127.0.0.1'
   if (mode === 'record') {
     // Both owning vitest configs (web unconditionally, snapshot in record
     // mode) load the repo-root .env before this file runs.
@@ -591,9 +563,6 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // Preserve the composed surface-context choice because a patch replaces
     // the row's complete config.
     { id: 'web-runtime', config: { openBrowser: false, printUrl: false, surfaceContext } },
-    ...options.remoteAuthority === undefined
-      ? []
-      : [{ id: 'connection', config: { trustedHosts: [options.remoteAuthority] } }],
     { id: 'settings', config: { dshHome: harnessHome } },
     { id: 'credentials', config: { dshHome: harnessHome } },
     // The shipped directory-picker row is the -auto chooser, which resolves
@@ -712,11 +681,6 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     })
     await ctx.loader.await()
     assertEntriesLoaded(ctx, 'web e2e scaffold')
-    if (options.welcomeNoticePending !== true) {
-      await ctx.settings.mutate(WELCOME_NOTICE_SETTINGS_NAMESPACE, [{
-        op: 'set', path: [WELCOME_NOTICE_ACK_FIELD], value: WELCOME_NOTICE_VERSION,
-      }])
-    }
     const boundPort = ctx.get('webServer')?.port
     if (boundPort === undefined) {
       throw new Error('web e2e scaffold: webServer service missing after settled boot')
@@ -780,7 +744,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         new RouteOnlyAdapter(replayProviders(options.replayContextWindow)),
       ), 'web e2e scaffold: route-only adapter')
     }
-    baseUrl = `http://${browserHost}:${String(port)}`
+    baseUrl = `http://127.0.0.1:${String(port)}`
     authenticatedUrl = ctx.connection.authenticatedUrl(baseUrl)
     const login = await fetch(authenticatedUrl, { redirect: 'manual' })
     const setCookie = login.headers.get('set-cookie')
@@ -846,7 +810,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
             [...observedSessions.values()],
             replayFixture,
             mode,
-            `http://${browserHost}:${port}`,
+            `http://127.0.0.1:${port}`,
             harnessHome,
           )
         } catch (error) {

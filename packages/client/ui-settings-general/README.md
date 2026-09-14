@@ -1,5 +1,5 @@
 ---
-description: "Settings shell, ownerless copy, and durable product-onboarding namespace for the dsh web client: the General section, trigger chrome, and onboarding ledger projection."
+description: "Settings shell and ownerless copy for the dsh web client: the General section and trigger chrome."
 kind: "package-reference"
 ---
 
@@ -63,7 +63,7 @@ On a loopback page, the Client loads the provider's `hasDocument` capability thr
 
 ### Host half
 
-The Host half registers `ui-onboarding` in the user-settings seam. The welcome step contributed by ui-settings-models reads and writes its `welcomeNoticeVersion` through the existing public settings boundary; the shell itself remains policy-free.
+The Host half declares nothing: the shell is a browser-only implementation. It used to register the `ui-onboarding` settings namespace for the product welcome notice; that notice was removed, and the namespace had no other reader, so the seam is gone.
 
 </details>
 

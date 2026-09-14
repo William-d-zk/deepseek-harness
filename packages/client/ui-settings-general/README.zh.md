@@ -1,5 +1,5 @@
 ---
-description: "dsh Web 客户端的设置外壳、无特定功能归属文案与持久化产品引导命名空间：「通用」分区、触发控件界面框架与引导账本投影。"
+description: "dsh Web 客户端的设置外壳与无特定功能归属文案：「通用」分区与触发控件界面框架。"
 kind: "package-reference"
 ---
 
@@ -63,7 +63,7 @@ kind: "package-reference"
 
 ### 宿主端
 
-宿主端在用户设置 seam 中注册 `ui-onboarding`。`ui-settings-models` 提供的欢迎步骤通过既有公开 settings 边界读写其中的 `welcomeNoticeVersion`；外壳本身仍不持有产品策略。
+宿主端不声明任何东西：外壳是纯浏览器实现。它曾在用户设置 seam 中为产品内测声明注册 `ui-onboarding`；该声明已移除且这个 namespace 没有别的读取方，seam 随之撤除。
 
 </details>
 
