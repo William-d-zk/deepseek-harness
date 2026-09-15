@@ -12,7 +12,7 @@ import type { ReactNode, RefObject } from 'react'
 import { workspaceNamespaceFilter, workspacePathInNamespace } from './navigation.ts'
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Button, IconFolderClose16, IconPlusOutline16, Menu, Modal, type MenuEntry,
+  Button, IconFolderClose16, IconFolderOpenOutline16, Menu, Modal, type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   WorkspaceId, WorkspaceSnapshot, WorkspaceView,
@@ -100,7 +100,10 @@ export function WorkspacePickFlow({
     if (flowOpen && !flowAvailable) setFlowOpen(false)
   }, [flowOpen, flowAvailable])
   const addEntries: MenuEntry[] = flowAvailable
-    ? [{ id: ADD_WORKSPACE, label: t('menu.addWorkspace'), icon: <IconPlusOutline16 size={16} />, disabled: flowBusy }]
+    // The entry raises the directory flow, which offers the caller's own app
+    // workspaces to choose among: creation and renaming live in the app
+    // management page, so the entry names the choice, not an addition.
+    ? [{ id: ADD_WORKSPACE, label: t('menu.chooseWorkspace'), icon: <IconFolderOpenOutline16 size={16} />, disabled: flowBusy }]
     : []
   // With workspaces listed, the add action pins below the scroll region
   // (divider + always visible); otherwise it IS the menu.

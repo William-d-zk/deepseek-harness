@@ -11,7 +11,7 @@
  * Each registration also declares one **directory-flow hole** (`single`
  * kind): the slot a composed picker package's client half fills with its
  * picking interaction — a renderless native-chooser driver or an in-app
- * browsing dialog. ui-workspace owns the trigger (the "Add workspace…"
+ * browsing dialog. ui-workspace owns the trigger (the "Choose workspace…"
  * entry, present only while the hole is occupied) and the adoption
  * semantics (`createWorkspace({ path })`, the retryable error dialog,
  * Choose again); the occupant owns everything between `open` and the picked path,
@@ -69,7 +69,7 @@ export type DirectoryFlowSlotName =
  * Directory-picking share both trigger surfaces consume. Occupancy rides the
  * inject face's reserved `hooks` compartment: the renderer binds the source
  * into the `useDirectoryFlow` selector hook, so an empty hole hides the
- * "Add workspace…" entry reactively and the surface withdraws an open
+ * "Choose workspace…" entry reactively and the surface withdraws an open
  * flow whose occupant unloaded mid-interaction (nobody is left to cancel).
  */
 export type DirectoryPickingInjected = {

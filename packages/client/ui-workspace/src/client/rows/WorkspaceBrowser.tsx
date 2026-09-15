@@ -14,7 +14,7 @@ import { workspaceNamespaceFilter, workspacePathInNamespace } from '../navigatio
 import clsx from 'clsx'
 import {
   Button, IconCloseFill14, IconPersonalizationOutline16,
-  IconProjectAddOutline16, IconSearchOutline16, Menu, Modal, Tooltip,
+  IconFolderOpenOutline16, IconSearchOutline16, Menu, Modal, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   SessionListState, SessionSearchResultItem,
@@ -1212,21 +1212,22 @@ export function WorkspaceBrowser({
               t={t}
             />
           )}
-          {/* Adding is the button's one action, so a composition with no
-              picking affordance has nothing to offer here: the region hides the
-              button rather than leaving a dead one in the header. */}
+          {/* Choosing is the button's one action (creation lives in the app
+              management page), so a composition with no picking affordance has
+              nothing to offer here: the region hides the button rather than
+              leaving a dead one in the header. */}
           {directoryFlowAvailable && (
-            <Tooltip label={t('workspace.add')} side="bottom" delayMs={500}>
+            <Tooltip label={t('workspace.choose')} side="bottom" delayMs={500}>
               <button
                 ref={wsPlusRef}
                 type="button"
                 className={css.iconButton}
-                aria-label={t('workspace.add')}
+                aria-label={t('workspace.choose')}
                 onClick={() => {
                   setWsPickerOpen(v => !v)
                 }}
               >
-                <IconProjectAddOutline16 size={wide ? 16 : 18} />
+                <IconFolderOpenOutline16 size={wide ? 16 : 18} />
               </button>
             </Tooltip>
           )}

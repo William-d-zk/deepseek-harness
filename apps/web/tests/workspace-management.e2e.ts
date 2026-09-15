@@ -47,11 +47,11 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
 
   /**
    * Raise the region header's directory dialog and drive it to a directory via
-   * the path-edit affordance. Adding is the header button's only action, so
+   * the path-edit affordance. Choosing is the header button's only action, so
    * the click lands in the dialog with no menu in between.
    */
   async function browseTo(path: string): Promise<Locator> {
-    await page.getByRole('button', { name: 'Add workspace' }).click()
+    await page.getByRole('button', { name: 'Choose workspace' }).click()
     const dialog = page.getByRole('dialog', { name: 'Select Workspace Directory' })
     await dialog.waitFor({ timeout: 10_000 })
     await dialog.getByRole('button', { name: 'Edit path' }).click()

@@ -1799,7 +1799,8 @@ describe('AppCreator app-picking mode', () => {
     globalThis.localStorage.setItem('dsh.uiWorkspace.appPicking', '1')
     mount()
     await waitFor(() => { expect(screen.getByRole('listitem')).toBeTruthy() })
-    // 添加工作区 = 新建应用: creation survives, labelled as an app workspace.
+    // App-scoped picker: creation stays (the backend makes it a new app
+    // workspace), labelled as an app rather than a folder.
     expect(screen.getByRole('button', { name: 'browser.newApp' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'browser.newFolder' })).toBeNull()
     // An app level has no hidden entries: that control stays out.

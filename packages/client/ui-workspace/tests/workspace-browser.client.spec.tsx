@@ -127,7 +127,7 @@ describe('WorkspaceBrowser', () => {
     const input = screen.getByPlaceholderText('搜索会话…')
     expect(document.activeElement).toBe(input)
     fireEvent.click(screen.getByRole('button', { name: '清除搜索' }))
-    const add = screen.getByRole('button', { name: '添加工作区' })
+    const add = screen.getByRole('button', { name: '选择工作区' })
     add.focus()
     fireEvent.click(add)
     expect(document.activeElement).toBe(add)
@@ -1071,7 +1071,7 @@ describe('WorkspaceBrowser', () => {
   it('rail add-workspace raises the directory flow in place, with no menu and no expansion', () => {
     const expandSidebar = vi.fn()
     mount({ wide: false, expandSidebar, useWorkspaces: hook(workspaceState([workspace('alpha', [])])) })
-    fireEvent.click(screen.getByRole('button', { name: '添加工作区' }))
+    fireEvent.click(screen.getByRole('button', { name: '选择工作区' }))
     expect(expandSidebar).not.toHaveBeenCalled()
     // Adding is the header's only action, so the gesture IS that action: no
     // one-row popover, and existing workspaces stay in the tree below.
@@ -1086,7 +1086,7 @@ describe('WorkspaceBrowser', () => {
       useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => false, subscribe: () => () => {} }),
     })
     // Nothing to add with, so the header offers no dead button.
-    expect(screen.queryByRole('button', { name: '添加工作区' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '选择工作区' })).toBeNull()
     expect(screen.getByText('alpha')).toBeTruthy()
   })
 

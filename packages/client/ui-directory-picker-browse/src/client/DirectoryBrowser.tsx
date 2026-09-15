@@ -275,9 +275,12 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
  * AppCreator picker mode (deployment opt-in via localStorage flag set by the
  * dsh-alioth web gate script): the browser lists apps under a namespace. The
  * hidden-file control is meaningless there and hidden; creation stays, because
- * 添加工作区就是创建新应用 — the backend turns the gesture into a new app
- * workspace (`Pre-Proc/<namespace>/Apps/<name>`), so it is offered and labelled
- * as an app rather than a folder.
+ * the Alioth backend turns the create gesture into a new app workspace
+ * (`Pre-Proc/<namespace>/Apps/<name>`), so it is offered and labelled as an
+ * app rather than a folder. The console's own workspace entry names the
+ * choice (选择工作区 / Choose workspace) — creating and renaming an app live in
+ * the deployment's app management page — while the flow keeps offering
+ * creation for the gesture that asks for it.
  */
 function appPickingMode(): boolean {
   try {
