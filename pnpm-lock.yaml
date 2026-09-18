@@ -326,20 +326,20 @@ importers:
         specifier: workspace:^
         version: link:../../../WorkSpace/deepseek-harness/packages/bundle/web-app
       '@dsh-chess/app-session-bridge':
-        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/app-session-bridge
+        specifier: file:../../../WorkSpace/dsh-chess/packages/app-session-bridge
         version: file:../dsh-chess/packages/app-session-bridge(@deepseek-ai/cordis@4.0.2)
       '@dsh-chess/rchess-agents':
-        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/rchess-agents
-        version: file:../dsh-chess/packages/rchess-agents(50533a63cb5241a3b4b0823aac9fb72b)
+        specifier: file:../../../WorkSpace/dsh-chess/packages/rchess-agents
+        version: file:../dsh-chess/packages/rchess-agents(097edf4f36e9e2ceaa9b1c42f08e6001)
       '@dsh-chess/rchess-core':
-        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/rchess-core
+        specifier: file:../../../WorkSpace/dsh-chess/packages/rchess-core
         version: file:../dsh-chess/packages/rchess-core(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2))(supports-color@9.4.0)
       '@dsh-chess/web-compat':
-        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/web-compat
+        specifier: file:../../../WorkSpace/dsh-chess/packages/web-compat
         version: file:../dsh-chess/packages/web-compat(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-host-webserver@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(supports-color@9.4.0))
       '@dsh-chess/web-devices':
-        specifier: file:/Users/william.d.zk/WorkSpace/dsh-chess/packages/web-devices
-        version: file:../dsh-chess/packages/web-devices(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-host-webserver@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(supports-color@9.4.0))(@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(50533a63cb5241a3b4b0823aac9fb72b))
+        specifier: file:../../../WorkSpace/dsh-chess/packages/web-devices
+        version: file:../dsh-chess/packages/web-devices(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-host-webserver@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(supports-color@9.4.0))(@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(097edf4f36e9e2ceaa9b1c42f08e6001))
     devDependencies:
       '@deepseek-ai/dsh':
         specifier: workspace:^
@@ -25341,7 +25341,7 @@ snapshots:
       - '@cfworker/json-schema'
       - supports-color
 
-  '@deepseek-ai/dsh-mcp-client@0.1.6-alpha.2(7cf8993f8159da0f362cf674d158df9d)':
+  '@deepseek-ai/dsh-mcp-client@0.1.6-alpha.2(562a166299d52f2ec6c5d2115fd2e613)':
     dependencies:
       '@deepseek-ai/cordis': 4.0.2(@deepseek-ai/cordis-plugin-include@1.0.7)(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@deepseek-ai/dsh-attachment': 0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-brand@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2))
@@ -27555,12 +27555,12 @@ snapshots:
       '@deepseek-ai/dsh-tools': 0.1.2-alpha.5(2774f8cca5234af4da2e3b1d945ace92)
       '@deepseek-ai/schemastery': link:vendor/schemastery
 
-  '@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(50533a63cb5241a3b4b0823aac9fb72b)':
+  '@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(097edf4f36e9e2ceaa9b1c42f08e6001)':
     dependencies:
       '@deepseek-ai/cordis': 4.0.2(@deepseek-ai/cordis-plugin-include@1.0.7)(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@deepseek-ai/dsh-agent': link:packages/core/agent
       '@deepseek-ai/dsh-llm': 0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)
-      '@deepseek-ai/dsh-mcp-client': 0.1.6-alpha.2(7cf8993f8159da0f362cf674d158df9d)
+      '@deepseek-ai/dsh-mcp-client': 0.1.6-alpha.2(562a166299d52f2ec6c5d2115fd2e613)
       '@deepseek-ai/dsh-session-persistence': 0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-brand@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2))(@deepseek-ai/dsh-session@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-scope@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2))))(@deepseek-ai/dsh-timeout@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2))
       '@deepseek-ai/dsh-system-prompt': 0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2))(@deepseek-ai/dsh-llm@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2))(@deepseek-ai/dsh-scope@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)))
       '@deepseek-ai/schemastery': link:vendor/schemastery
@@ -27619,12 +27619,12 @@ snapshots:
       '@deepseek-ai/dsh-host-webserver': 0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(supports-color@9.4.0)
       '@deepseek-ai/schemastery': link:vendor/schemastery
 
-  '@dsh-chess/web-devices@file:../dsh-chess/packages/web-devices(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-host-webserver@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(supports-color@9.4.0))(@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(50533a63cb5241a3b4b0823aac9fb72b))':
+  '@dsh-chess/web-devices@file:../dsh-chess/packages/web-devices(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-host-webserver@0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(supports-color@9.4.0))(@dsh-chess/rchess-agents@file:../dsh-chess/packages/rchess-agents(097edf4f36e9e2ceaa9b1c42f08e6001))':
     dependencies:
       '@deepseek-ai/cordis': 4.0.2(@deepseek-ai/cordis-plugin-include@1.0.7)(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@deepseek-ai/dsh-host-webserver': 0.1.6-alpha.2(@deepseek-ai/cordis@4.0.2)(supports-color@9.4.0)
       '@deepseek-ai/schemastery': link:vendor/schemastery
-      '@dsh-chess/rchess-agents': file:../dsh-chess/packages/rchess-agents(50533a63cb5241a3b4b0823aac9fb72b)
+      '@dsh-chess/rchess-agents': file:../dsh-chess/packages/rchess-agents(097edf4f36e9e2ceaa9b1c42f08e6001)
 
   '@earendil-works/pi-ai@0.84.4(@modelcontextprotocol/sdk@1.29.0(supports-color@9.4.0)(zod@4.4.3))(supports-color@9.4.0)(ws@8.21.0)(zod@4.4.3)':
     dependencies:
