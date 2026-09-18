@@ -9,9 +9,9 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-page-feedback` is the store half of a visual page-annotation loop: a human Alt-clicks an element on a running page (via the overlay asset this package ships), leaves a comment, and an agent or product surface consumes the annotation through the `pageFeedback` service — acknowledging, fixing, and resolving it with optional browser-capture evidence. The state machine (`pending ⇄ acknowledged → resolved | dismissed`) and audit-event semantics are ported from AliothStudio's dev feedback tool, so an AliothStudio dev loop and a harness deployment observing the same server see identical transitions.
+Annotate a running page and let an agent or operator work through the result: a human Alt-clicks an element through the overlay asset this package ships, leaves a comment, and a consumer acknowledges, fixes, and resolves it through the `pageFeedback` service with browser-capture evidence attached when useful. Comments survive restarts, every state change is audited, and `acknowledged` marks the claim that keeps concurrent consumers from double-claiming.
 
-This package is the **capability only**: it owns no HTTP port. A carrier (a product web server or dev-tool server) exposes the store to browsers and tools; the overlay string is served or injected by that carrier. Model-facing consumer tools are composed by the deployment (see the group README).
+Nothing here serves HTTP or reaches a model: a carrier you wire in serves the overlay and the annotation endpoints, and your deployment composes any consumer tools.
 
 ## Table of Contents
 
@@ -67,6 +67,8 @@ The plugin mounts `ctx.pageFeedback` with the full service surface:
 - **Audit events**: `created`, `status_changed` (only on real transitions), `reply_written` (snapshots the previous reply), `verification_written` (snapshots the previous payload). Event order is insertion order (SQLite `rowid`), not wall-clock — same-millisecond writes keep their causal order.
 - **Watch**: a shared waiter set wakes on every new annotation; timeouts resolve to the current pending batch. Guards for the timeout/wake interleave are defensive (a settled waiter is always removed before the next wake).
 - **Trust boundary**: the store is loopback-neutral; the carrier enforces origin allowlists for browser writes and admin auth for state changes. This package only pins the state machine + audit semantics.
+
+No runtime invariant companion is published: every view the store serves (open set, audit chain, verification snapshot) is recomputed from its own rows, so no second owner holds a value to compare.
 
 ## Overlay asset
 

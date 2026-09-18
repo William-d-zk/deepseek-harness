@@ -9,9 +9,9 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-page-feedback` 是可视化页面批注闭环的存储半区：人工在运行页面上 Alt+点击 某元素（经由本包随附的 overlay 资产）留下批注，agent 或产品界面通过 `pageFeedback` 服务消费——ack 认领、修复、resolve 并可选附带浏览器截图证据。 状态机（`pending ⇄ acknowledged → resolved | dismissed`）与审计事件语义移植自 AliothStudio 的 dev feedback 工具，因此 AliothStudio dev 循环与 harness 部署观察 同一 server 时看到完全一致的流转。
+对运行中的页面做批注，再让 agent 或操作者把结果处理完：人通过本包随附的 overlay 资产 Alt+点击某元素并留下评论，消费方通过 `pageFeedback` 服务确认、修复并 resolve，必要时附上浏览器截图证据。评论在重启后仍在，每次状态变更都有审计，`acknowledged` 即认领标记，可避免并发消费者重复认领。
 
-本包**仅为能力**：不拥有任何 HTTP 端口。carrier（产品 web server 或 dev-tool server）负责把存储暴露给浏览器与工具；overlay 字符串由该 carrier serve 或注入。 模型侧消费工具由部署方组合（见组 README）。
+本包不提供 HTTP，也不接触模型：由你接入的 carrier 提供 overlay 与批注接口，消费工具由你的部署组合。
 
 ## 目录
 
@@ -68,6 +68,8 @@ kind: "package-reference"
 - **审计事件**：`created`、`status_changed`（仅真实流转）、`reply_written` （快照旧 reply）、`verification_written`（快照旧 payload）。事件按插入序 （SQLite `rowid`）而非墙钟——同毫秒写入保持因果序。
 - **Watch**：共享 waiter 集合在每条新批注时唤醒；超时解析到当前 pending 批。 timeout/wake 交错的守卫为防御性（settled waiter 在下一次 wake 前必被移除）。
 - **信任边界**：store 对回环中立；carrier 负责浏览器写入的 origin allowlist 与 状态变更的 admin 认证。本包只锚定状态机 + 审计语义。
+
+不发布运行时不变式伴生入口：存储提供的每个视图（待处理集合、审计链、验证快照）都由它自己的行重算得出，没有第二个所有者持有可比较的值。
 
 <a id="overlay-asset"></a>
 ## Overlay 资产

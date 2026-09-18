@@ -272,6 +272,10 @@ type SessionFeedbackRecordResult =
   | { readonly ok: false; readonly error: SessionFeedbackSessionNotFound }
 ```
 
+## 页面标注
+
+[`@deepseek-ai/dsh-page-feedback`](../../packages/feedback/page-feedback) 是该分组的第三种反馈，并使用自己的存储：人通过该包附带的叠加层资源 Alt+点击运行中页面上的元素，提供该资源的载体是唯一的 HTTP 参与方。标注存放在自己的 SQLite 数据库中（默认 `~/.dsh/feedback-page.db`），绝不进入 Session 日志；`ctx.pageFeedback` 就是它的全部接口——`pending ⇄ acknowledged → resolved | dismissed` 生命周期、每一行都带 `browser`、`cli` 或 `model` 来源的追加式审计链、长期轮询 `watch`，以及由 `writeVerification` 附加的解决证据。标注不会进入模型请求，该包也不注册任何工具、提示词片段或 Session 事件。
+
 ## 数据与并发
 
 当前条目由 payload 中 `sessionId` 与所属 Session 匹配的权威反馈事件归约得到。每个条目携带好评或差评、可选备注、可选分类、Host 分配的 `createdAt`/`updatedAt` 时间戳及自己的 opaque version。version 只能用于相等比较，且只与目标消息比较；调用方不能排序或自行合成它。
@@ -353,6 +357,100 @@ Session-log service; cold operations never construct a Session or Agent.
 ```
 
 Source: [`packages/feedback/message-feedback/src/index.ts`](../../packages/feedback/message-feedback/src/index.ts)
+
+<a id="ctxpagefeedback--pagefeedbackservice"></a>
+
+### `ctx.pageFeedback` — `PageFeedbackService`
+
+The store surface mounted on `ctx.pageFeedback`: annotation lifecycle, append-only audit chain, long-poll watch, and resolve evidence.
+
+```ts cordis-catalog
+/**
+ * Report store liveness and the current annotation counts.
+ * @returns `ok: true` while the store answers, `annotations` for every stored row,
+ * and `pending` for the rows still open (`pending` or `acknowledged`).
+ */
+health(): { ok: boolean; annotations: number; pending: number }
+
+/**
+ * Return the viewer session for one page, creating it on first use.
+ * @param origin - origin the page's annotations are pinned to.
+ * @param url - page URL inside that origin.
+ * @returns the stored session for this `(origin, url)` pair, or a new one whose
+ * `createdAt` is now.
+ */
+ensureSession(origin: string, url: string): FeedbackSession
+
+/**
+ * Record a new annotation as `pending` and wake every pending watcher.
+ * @param input - comment plus page and element locators; a blank comment is
+ * rejected, and a non-empty `sessionId` joins that stored session instead of
+ * resolving one from the input origin and URL.
+ * @param source - audit attribution tier; the overlay posts as `browser`.
+ * @returns the stored annotation with its `created` audit row appended.
+ */
+addAnnotation(input: AddAnnotationInput, source?: AuditSource): Annotation
+
+/**
+ * List the open annotations, newest first.
+ * @returns every `pending` or `acknowledged` annotation, ordered by creation
+ * time descending.
+ */
+pending(): Annotation[]
+
+/**
+ * Read one annotation.
+ * @param id - annotation id.
+ * @returns the stored annotation, or `null` when no row carries the id.
+ */
+get(id: string): Annotation | null
+
+/**
+ * Apply a status, a reply, or both, appending one audit row per change.
+ * @param id - annotation id; an unknown id is an error.
+ * @param status - desired status; `undefined` keeps the current one, an
+ * illegal transition is an error, and the current status records no event.
+ * @param reply - reply text; `undefined` keeps the stored reply.
+ * @param source - audit attribution tier; model consumers post as `model`.
+ * @returns the annotation after the write.
+ */
+setStatus( id: string, status: AnnotationStatus | undefined, reply: string | undefined, source?: AuditSource, ): Annotation
+
+/**
+ * Read one annotation's audit chain.
+ * @param id - annotation id.
+ * @returns every audit row for the annotation in insertion order, which is
+ * causal order even for same-millisecond writes.
+ */
+history(id: string): AnnotationEvent[]
+
+/**
+ * Wait for the next new annotation, or for the timeout.
+ * @param timeoutMs - upper bound in milliseconds, clamped to `[0, 60000]`.
+ * @returns the open annotations at wake time: the batch that includes the
+ * added annotation, or the current batch once the timeout elapses.
+ */
+watch(timeoutMs: number): Promise<Annotation[]>
+
+/**
+ * Drop terminal annotations older than a cutoff.
+ * @param olderThanMs - age in milliseconds; annotations whose last update is
+ * at or before `now - olderThanMs` are deleted with their audit rows.
+ * @returns the number of deleted annotations.
+ */
+prune(olderThanMs: number): number
+
+/**
+ * Replace the stored verification evidence for one annotation.
+ * @param id - annotation id; an unknown id is an error.
+ * @param evidence - current snapshot; the previous payload stays in the audit chain.
+ * @param source - audit attribution tier; model consumers post as `model`.
+ * @returns the annotation's full audit chain after the write.
+ */
+writeVerification(id: string, evidence: VerificationEvidence, source?: AuditSource): AnnotationEvent[]
+```
+
+Source: [`packages/feedback/page-feedback/src/types.ts`](../../packages/feedback/page-feedback/src/types.ts)
 
 <a id="ctxsessionfeedback--sessionfeedbackservice"></a>
 

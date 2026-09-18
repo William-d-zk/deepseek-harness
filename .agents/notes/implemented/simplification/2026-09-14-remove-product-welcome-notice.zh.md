@@ -8,7 +8,7 @@ Status: implemented
 
 每个全新的 Web profile 都会先被一份产品级内测声明挡住：这个阻塞式弹窗先于凭据步骤，也先于用户与 Console 的任何交互。`ui-settings-models` 把它以 `-100` 的顺序注册进 `settings.onboarding`，排在顺序为 `0` 的 DeepSeek 凭据步骤之前；[有序归属](../../archived/feature/2026-07-30-versioned-gui-welcome-onboarding.md)与[共享弹窗](../../archived/feature/2026-08-13-shared-modal-product-onboarding.md)两项决策又规定只有显式点击「继续」才算确认——Escape 与遮罩点击都无法关闭它——因此这份声明是每个部署的用户最先遇到的东西。
 
-它的文案以框架厂商的口吻说话。两种语言的正文都点名 DeepSeek Harness，把它的 `0.1` 版本描述为面向 Harness 开发者测试的阶段，并邀请读者加入 DSH 插件生态。把 Console 当作自家产品发布的部署无法复述这些内容：它并不处在框架所定义的 `0.1` 开发者测试阶段，其用户也不是插件作者。文案位于 `packages/client/ui-settings-models/src/onboarding-copy.ts`，这些字符串以 `welcomeTitle`、`welcomeBody`、`welcomeContinue`、`welcomeError` 四个键在两种语言中发布。
+它的文案以框架厂商的口吻说话。两种语言的正文都点名 DeepSeek Harness，把它的 `0.1` 版本描述为面向 Harness 开发者测试的阶段，并邀请读者加入 DSH 插件生态。把 Console 当作自家产品发布的部署无法复述这些内容：它并不处在框架所定义的 `0.1` 开发者测试阶段，其用户也不是插件作者。文案位于 `ui-settings-models` 的 `onboarding-copy.ts`，这些字符串以 `welcomeTitle`、`welcomeBody`、`welcomeContinue`、`welcomeError` 四个键在两种语言中发布。
 
 确认状态比它的读取方活得更久。该声明是 `ui-onboarding` 设置命名空间的唯一消费方，而该命名空间唯一的字段是 `welcomeNoticeVersion`；`packages/client/ui-settings-general/src/index.ts` 的存在只为声明这个命名空间，不做其他任何事，而浏览器 e2e 车道在每个非首次运行场景启动前都会写入该字段，以预先确认这份声明。
 

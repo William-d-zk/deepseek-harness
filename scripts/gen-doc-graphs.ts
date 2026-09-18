@@ -400,6 +400,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Records one Session-level remark with its category as a log-only feedback/record event on a live Session through the Host unary Remote contract; the /feedback command shares the same producer.',
   },
   {
+    key: 'pageFeedback',
+    pkg: 'page-feedback',
+    title: 'Page-annotation feedback store',
+    mode: 'core',
+    note: 'Owns the durable page-annotation store behind the overlay and carrier seams: the pending ⇄ acknowledged → resolved | dismissed lifecycle, a per-write audit chain, long-poll watch, and resolve evidence. Annotations stay outside the Session log, model requests, and every registered tool.',
+  },
+  {
     key: 'workspaceRegistry',
     pkg: 'workspace',
     title: 'Workspace entity registry',

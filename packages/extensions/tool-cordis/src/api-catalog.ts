@@ -772,6 +772,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'baseUrl', description: 'clean canonical browser origin.' }],
         returns: 'root URL accepted by {@link authorizeIndex} for initial login.',
       },
+      {
+        signature: 'registerAccountResolver(resolver: ConnectionAccountResolver): () => void',
+        description: 'Register the host-login account resolver (opt-in). The resolver maps one request\'s headers (cookie jar) to the signed-in account string, or null. Host plugins (directory pickers, session consumers) read the account of the dispatch/stream currently being processed through `currentConnectionAccount()`.',
+        parameters: [{ name: 'resolver', description: 'header-to-account resolver; replaces any prior one.' }],
+        returns: 'a disposer clearing the resolver.',
+      },
+      {
+        signature: 'resolveAccount(headers: ConnectionAccountHeaders): Promise<string | null>',
+        description: 'Resolve the signed-in account for one request (boundary use).',
+        parameters: [{ name: 'headers', description: 'request headers (cookie jar).' }],
+        returns: 'the resolver\'s account claim, or null when anonymous/unregistered.',
+      },
     ],
   },
   {
@@ -1439,6 +1451,73 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Read the current rendering generation before reusing a Client PDF.',
         parameters: [{ name: 'signal', description: 'Remote caller cancellation.' }],
         returns: 'provider lifetime, replaced with rendering, font, or engine configuration.',
+      },
+    ],
+  },
+  {
+    key: 'pageFeedback',
+    summary: 'The store surface mounted on `ctx.pageFeedback`: annotation lifecycle, append-only audit chain, long-poll watch, and resolve evidence.',
+    description: 'The store surface mounted on `ctx.pageFeedback`: annotation lifecycle, append-only audit chain, long-poll watch, and resolve evidence.',
+    methods: [
+      {
+        signature: 'health(): { ok: boolean; annotations: number; pending: number }',
+        description: 'Report store liveness and the current annotation counts.',
+        parameters: [],
+        returns: '`ok: true` while the store answers, `annotations` for every stored row, and `pending` for the rows still open (`pending` or `acknowledged`).',
+      },
+      {
+        signature: 'ensureSession(origin: string, url: string): FeedbackSession',
+        description: 'Return the viewer session for one page, creating it on first use.',
+        parameters: [{ name: 'origin', description: 'origin the page\'s annotations are pinned to.' }, { name: 'url', description: 'page URL inside that origin.' }],
+        returns: 'the stored session for this `(origin, url)` pair, or a new one whose `createdAt` is now.',
+      },
+      {
+        signature: 'addAnnotation(input: AddAnnotationInput, source?: AuditSource): Annotation',
+        description: 'Record a new annotation as `pending` and wake every pending watcher.',
+        parameters: [{ name: 'input', description: 'comment plus page and element locators; a blank comment is rejected, and a non-empty `sessionId` joins that stored session instead of resolving one from the input origin and URL.' }, { name: 'source', description: 'audit attribution tier; the overlay posts as `browser`.' }],
+        returns: 'the stored annotation with its `created` audit row appended.',
+      },
+      {
+        signature: 'pending(): Annotation[]',
+        description: 'List the open annotations, newest first.',
+        parameters: [],
+        returns: 'every `pending` or `acknowledged` annotation, ordered by creation time descending.',
+      },
+      {
+        signature: 'get(id: string): Annotation | null',
+        description: 'Read one annotation.',
+        parameters: [{ name: 'id', description: 'annotation id.' }],
+        returns: 'the stored annotation, or `null` when no row carries the id.',
+      },
+      {
+        signature: 'setStatus( id: string, status: AnnotationStatus | undefined, reply: string | undefined, source?: AuditSource, ): Annotation',
+        description: 'Apply a status, a reply, or both, appending one audit row per change.',
+        parameters: [{ name: 'id', description: 'annotation id; an unknown id is an error.' }, { name: 'status', description: 'desired status; `undefined` keeps the current one, an illegal transition is an error, and the current status records no event.' }, { name: 'reply', description: 'reply text; `undefined` keeps the stored reply.' }, { name: 'source', description: 'audit attribution tier; model consumers post as `model`.' }],
+        returns: 'the annotation after the write.',
+      },
+      {
+        signature: 'history(id: string): AnnotationEvent[]',
+        description: 'Read one annotation\'s audit chain.',
+        parameters: [{ name: 'id', description: 'annotation id.' }],
+        returns: 'every audit row for the annotation in insertion order, which is causal order even for same-millisecond writes.',
+      },
+      {
+        signature: 'watch(timeoutMs: number): Promise<Annotation[]>',
+        description: 'Wait for the next new annotation, or for the timeout.',
+        parameters: [{ name: 'timeoutMs', description: 'upper bound in milliseconds, clamped to `[0, 60000]`.' }],
+        returns: 'the open annotations at wake time: the batch that includes the added annotation, or the current batch once the timeout elapses.',
+      },
+      {
+        signature: 'prune(olderThanMs: number): number',
+        description: 'Drop terminal annotations older than a cutoff.',
+        parameters: [{ name: 'olderThanMs', description: 'age in milliseconds; annotations whose last update is at or before `now - olderThanMs` are deleted with their audit rows.' }],
+        returns: 'the number of deleted annotations.',
+      },
+      {
+        signature: 'writeVerification(id: string, evidence: VerificationEvidence, source?: AuditSource): AnnotationEvent[]',
+        description: 'Replace the stored verification evidence for one annotation.',
+        parameters: [{ name: 'id', description: 'annotation id; an unknown id is an error.' }, { name: 'evidence', description: 'current snapshot; the previous payload stays in the audit chain.' }, { name: 'source', description: 'audit attribution tier; model consumers post as `model`.' }],
+        returns: 'the annotation\'s full audit chain after the write.',
       },
     ],
   },
@@ -3993,6 +4072,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface AdapterRegistrationHandle {\n    (): void;\n    replace(providers: string[]): void;\n}',
   },
   {
+    name: 'AddAnnotationInput',
+    declaration: 'export interface AddAnnotationInput {\n    sessionId?: string;\n    origin: string;\n    url: string;\n    comment: string;\n    element?: string;\n    elementPath?: string;\n    cssClasses?: string;\n    pathMatchCount?: number;\n    pathMatchesTarget?: boolean;\n    stableSelector?: string;\n    columnHeader?: string;\n    rowKey?: string;\n    reactKeyPath?: string[];\n    scroll?: {\n        x: number;\n        y: number;\n    };\n    viewport?: {\n        width: number;\n        height: number;\n    };\n}',
+  },
+  {
     name: 'AdmittedPromptContentPart',
     declaration: 'export type AdmittedPromptContentPart = {\n    readonly type: \'text\';\n    readonly text: string;\n} | {\n    readonly type: \'image\';\n    readonly attachment: ImageAttachmentRef;\n} | {\n    readonly type: \'file\';\n    readonly attachment: FileAttachmentRef;\n};',
   },
@@ -4059,6 +4142,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentStatus',
     declaration: 'export type AgentStatus = \'idle\' | \'running\';',
+  },
+  {
+    name: 'Annotation',
+    declaration: 'export interface Annotation {\n    id: string;\n    sessionId: string;\n    origin: string;\n    url: string;\n    comment: string;\n    element: string;\n    elementPath: string;\n    cssClasses: string;\n    pathMatchCount?: number;\n    pathMatchesTarget?: boolean;\n    stableSelector?: string;\n    columnHeader?: string;\n    rowKey?: string;\n    reactKeyPath?: string[];\n    scroll?: {\n        x: number;\n        y: number;\n    };\n    viewport?: {\n        width: number;\n        height: number;\n    };\n    status: AnnotationStatus;\n    reply: string | null;\n    createdAt: number;\n    updatedAt: number;\n}',
+  },
+  {
+    name: 'AnnotationEvent',
+    declaration: 'export interface AnnotationEvent {\n    id: string;\n    annotationId: string;\n    kind: AnnotationEventKind;\n    from: string | null;\n    to: string | null;\n    source: AuditSource;\n    at: number;\n}',
+  },
+  {
+    name: 'AnnotationEventKind',
+    declaration: 'export type AnnotationEventKind = \'created\' | \'status_changed\' | \'reply_written\' | \'verification_written\';',
+  },
+  {
+    name: 'AnnotationStatus',
+    declaration: 'export type AnnotationStatus = (typeof ANNOTATION_STATUSES)[number];',
   },
   {
     name: 'ApiKeyRecord',
@@ -4159,6 +4258,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AttachmentId',
     declaration: 'export type AttachmentId = Branded<\'AttachmentId\'>;',
+  },
+  {
+    name: 'AuditSource',
+    declaration: 'export type AuditSource = \'browser\' | \'cli\' | \'model\';',
   },
   {
     name: 'AuthorizationEntry',
@@ -4327,6 +4430,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ConfinedSandboxMode',
     declaration: 'export type ConfinedSandboxMode = Exclude<SandboxMode, \'danger-full-access\'>;',
+  },
+  {
+    name: 'ConnectionAccountHeaders',
+    declaration: 'export interface ConnectionAccountHeaders {\n    readonly cookie?: string | undefined;\n    readonly host?: string | undefined;\n}',
+  },
+  {
+    name: 'ConnectionAccountResolver',
+    declaration: 'export type ConnectionAccountResolver = (headers: ConnectionAccountHeaders) => string | null | Promise<string | null>;',
   },
   {
     name: 'ConnectionFetchHandler',
@@ -4554,7 +4665,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DirectoryListing',
-    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n}',
+    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n    lockedRoot?: {\n        readonly path: string;\n        readonly note: string;\n    };\n}',
   },
   {
     name: 'DirectoryPickerBrowseCapability',
@@ -4667,6 +4778,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'FeedbackCategory',
     declaration: 'export type FeedbackCategory = \'task-result\' | \'instruction-following\' | \'product-interaction\' | \'service-stability\' | \'resource-cost\' | \'security-privacy-permission\' | \'other\';',
+  },
+  {
+    name: 'FeedbackSession',
+    declaration: 'export interface FeedbackSession {\n    id: string;\n    origin: string;\n    url: string;\n    createdAt: number;\n}',
   },
   {
     name: 'FiberState',
@@ -6927,6 +7042,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'UserMessage',
     declaration: 'export interface UserMessage extends Message {\n    readonly role: \'user\';\n}',
+  },
+  {
+    name: 'VerificationEvidence',
+    declaration: 'export interface VerificationEvidence {\n    mode: \'capture\' | \'prototype\';\n    evidenceDir: string;\n    files: string[];\n    exitCode: number;\n    element?: {\n        found: boolean;\n        rect: {\n            x: number;\n            y: number;\n            width: number;\n            height: number;\n        } | null;\n        screenshot: string | null;\n        error?: string;\n        matches?: number;\n        matchedBy?: string;\n        boundaryBroken?: boolean;\n    };\n    anomalies: string[];\n}',
   },
   {
     name: 'VerifiedWebhookDelivery',

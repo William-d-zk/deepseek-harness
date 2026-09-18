@@ -22,6 +22,10 @@ export const remoteDefaultResponses: RemoteTable = {
       groups: [],
       failures: [],
     }),
+    // ui-settings-models `ModelsSettingsStore.load()` at the onboarding dialog's first mount: registered routes.
+    'llm/listProviders': ok([]),
+    // The same load's declared-directory half: no route is configurable before settings declare one.
+    'llm/listConfigurableProviders': ok([]),
     // ui-agent-preset hero chip and header label on first mount.
     'agentPresets/list': ok({ presets: [], authorable: false }),
     // cordis-client-runner `ClientCordisInspectRegistry.sync` at apply and on `connection/reset`.

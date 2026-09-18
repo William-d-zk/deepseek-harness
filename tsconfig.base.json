@@ -379,6 +379,7 @@
       "@deepseek-ai/dsh-office-to-pdf": ["./packages/document/office-to-pdf/src"],
       "@deepseek-ai/dsh-output-retention": ["./packages/util/output-retention/src"],
       "@deepseek-ai/dsh-package-manifest": ["./packages/util/package-manifest/src"],
+      "@deepseek-ai/dsh-page-feedback": ["./packages/feedback/page-feedback/src"],
       "@deepseek-ai/dsh-permission-presets": ["./packages/interaction/permission-presets/src"],
       "@deepseek-ai/dsh-permission-presets/invariant": ["./packages/interaction/permission-presets/src/invariant.ts"],
       "@deepseek-ai/dsh-persona": ["./packages/preset/persona/src"],

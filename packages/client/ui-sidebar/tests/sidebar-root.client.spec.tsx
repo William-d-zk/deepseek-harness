@@ -17,6 +17,9 @@ import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
+/** The deploying product name the fallback brand renders, taken from the dictionary the stub below resolves. */
+const localBuildBrand = (commonEn as Record<string, string>)['brand.localBuild']!
+
 // English-dictionary translate stub: the shell renders the same copy the
 // assertions below query by accessible name.
 const t: SidebarRootComponentProps['t'] = key =>
@@ -123,7 +126,7 @@ describe('SidebarRoot shell', () => {
         options?.fallback ?? null) as SidebarRootComponentProps['renderSlot']}
     />)
 
-    expect(screen.getByText('DSH Local Build')).toBeTruthy()
+    expect(screen.getByText(localBuildBrand)).toBeTruthy()
     expect(screen.getByText('1.2.3-rc.4-0123456-dirty')).toBeTruthy()
     expect(container.querySelector('svg')).not.toBeNull()
   })
@@ -143,7 +146,7 @@ describe('SidebarRoot shell', () => {
         options?.fallback ?? null) as SidebarRootComponentProps['renderSlot']}
     />)
 
-    expect(screen.getByText('DSH Local Build')).toBeTruthy()
+    expect(screen.getByText(localBuildBrand)).toBeTruthy()
     expect(screen.getByText(expected)).toBeTruthy()
   })
 
@@ -158,7 +161,7 @@ describe('SidebarRoot shell', () => {
         options?.fallback ?? null) as SidebarRootComponentProps['renderSlot']}
     />)
 
-    expect(screen.getByText('DSH Local Build')).toBeTruthy()
+    expect(screen.getByText(localBuildBrand)).toBeTruthy()
   })
 
   it('hands the region its wide flag and clamps expandSidebar to the collapsed state', () => {

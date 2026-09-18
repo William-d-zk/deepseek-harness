@@ -93,6 +93,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   lsp: 'lsp.md',
   messageFeedback: 'feedback.md',
   sessionFeedback: 'feedback.md',
+  pageFeedback: 'feedback.md',
   permissionPresets: 'permission-presets.md',
   planMode: 'plan.md',
   terminals: 'terminal.md',
@@ -840,6 +841,15 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   TerminalFrame: 'Browser terminal stream frames are owned by packages/api/terminal-controller/README.md',
   TerminalRetentionFrame: 'Browser terminal window holds are owned by packages/api/terminal-controller/README.md',
   WebTerminalId: 'Browser terminal identity is owned by packages/api/terminal-controller/README.md',
+  Annotation: 'page-annotation record is owned by packages/feedback/page-feedback/README.md',
+  AnnotationStatus: 'annotation lifecycle vocabulary is owned by packages/feedback/page-feedback/README.md',
+  AnnotationEvent: 'annotation audit row is owned by packages/feedback/page-feedback/README.md',
+  AddAnnotationInput: 'overlay annotation payload is owned by packages/feedback/page-feedback/README.md',
+  FeedbackSession: 'viewer session record is owned by packages/feedback/page-feedback/README.md',
+  AuditSource: 'audit attribution tier is owned by packages/feedback/page-feedback/README.md',
+  VerificationEvidence: 'resolve evidence record is owned by packages/feedback/page-feedback/README.md',
+  ConnectionAccountResolver: 'transport account resolver contract is owned by packages/client/connection/src/account-context.ts',
+  ConnectionAccountHeaders: 'transport account headers contract is owned by packages/client/connection/src/account-context.ts',
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */

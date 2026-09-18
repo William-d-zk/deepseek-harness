@@ -272,6 +272,10 @@ type SessionFeedbackRecordResult =
   | { readonly ok: false; readonly error: SessionFeedbackSessionNotFound }
 ```
 
+## Page annotations
+
+[`@deepseek-ai/dsh-page-feedback`](../../packages/feedback/page-feedback) is the group's third kind and keeps its own store: a human Alt-clicks an element on a running page through the overlay asset that package ships, and the carrier serving that asset is the only HTTP party. Annotations live in a SQLite database of their own (default `~/.dsh/feedback-page.db`), never in a Session log, and `ctx.pageFeedback` is the whole surface — the `pending ⇄ acknowledged → resolved | dismissed` lifecycle, an append-only audit chain whose every row carries a `browser`, `cli`, or `model` source, a long-poll `watch`, and resolve evidence attached by `writeVerification`. No annotation reaches a model request, and the package registers no tool, prompt section, or Session event.
+
 ## Data and concurrency
 
 Current items are folded from canonical feedback events whose payload `sessionId` matches the owning Session. Each item carries a positive or negative rating, an optional note, an optional category, Host-assigned `createdAt`/`updatedAt` timestamps, and its own opaque version. Versions are compared only for equality and only against the addressed message; callers do not order or synthesize them.
@@ -353,6 +357,100 @@ Session-log service; cold operations never construct a Session or Agent.
 ```
 
 Source: [`packages/feedback/message-feedback/src/index.ts`](../../packages/feedback/message-feedback/src/index.ts)
+
+<a id="ctxpagefeedback--pagefeedbackservice"></a>
+
+### `ctx.pageFeedback` — `PageFeedbackService`
+
+The store surface mounted on `ctx.pageFeedback`: annotation lifecycle, append-only audit chain, long-poll watch, and resolve evidence.
+
+```ts cordis-catalog
+/**
+ * Report store liveness and the current annotation counts.
+ * @returns `ok: true` while the store answers, `annotations` for every stored row,
+ * and `pending` for the rows still open (`pending` or `acknowledged`).
+ */
+health(): { ok: boolean; annotations: number; pending: number }
+
+/**
+ * Return the viewer session for one page, creating it on first use.
+ * @param origin - origin the page's annotations are pinned to.
+ * @param url - page URL inside that origin.
+ * @returns the stored session for this `(origin, url)` pair, or a new one whose
+ * `createdAt` is now.
+ */
+ensureSession(origin: string, url: string): FeedbackSession
+
+/**
+ * Record a new annotation as `pending` and wake every pending watcher.
+ * @param input - comment plus page and element locators; a blank comment is
+ * rejected, and a non-empty `sessionId` joins that stored session instead of
+ * resolving one from the input origin and URL.
+ * @param source - audit attribution tier; the overlay posts as `browser`.
+ * @returns the stored annotation with its `created` audit row appended.
+ */
+addAnnotation(input: AddAnnotationInput, source?: AuditSource): Annotation
+
+/**
+ * List the open annotations, newest first.
+ * @returns every `pending` or `acknowledged` annotation, ordered by creation
+ * time descending.
+ */
+pending(): Annotation[]
+
+/**
+ * Read one annotation.
+ * @param id - annotation id.
+ * @returns the stored annotation, or `null` when no row carries the id.
+ */
+get(id: string): Annotation | null
+
+/**
+ * Apply a status, a reply, or both, appending one audit row per change.
+ * @param id - annotation id; an unknown id is an error.
+ * @param status - desired status; `undefined` keeps the current one, an
+ * illegal transition is an error, and the current status records no event.
+ * @param reply - reply text; `undefined` keeps the stored reply.
+ * @param source - audit attribution tier; model consumers post as `model`.
+ * @returns the annotation after the write.
+ */
+setStatus( id: string, status: AnnotationStatus | undefined, reply: string | undefined, source?: AuditSource, ): Annotation
+
+/**
+ * Read one annotation's audit chain.
+ * @param id - annotation id.
+ * @returns every audit row for the annotation in insertion order, which is
+ * causal order even for same-millisecond writes.
+ */
+history(id: string): AnnotationEvent[]
+
+/**
+ * Wait for the next new annotation, or for the timeout.
+ * @param timeoutMs - upper bound in milliseconds, clamped to `[0, 60000]`.
+ * @returns the open annotations at wake time: the batch that includes the
+ * added annotation, or the current batch once the timeout elapses.
+ */
+watch(timeoutMs: number): Promise<Annotation[]>
+
+/**
+ * Drop terminal annotations older than a cutoff.
+ * @param olderThanMs - age in milliseconds; annotations whose last update is
+ * at or before `now - olderThanMs` are deleted with their audit rows.
+ * @returns the number of deleted annotations.
+ */
+prune(olderThanMs: number): number
+
+/**
+ * Replace the stored verification evidence for one annotation.
+ * @param id - annotation id; an unknown id is an error.
+ * @param evidence - current snapshot; the previous payload stays in the audit chain.
+ * @param source - audit attribution tier; model consumers post as `model`.
+ * @returns the annotation's full audit chain after the write.
+ */
+writeVerification(id: string, evidence: VerificationEvidence, source?: AuditSource): AnnotationEvent[]
+```
+
+Source: [`packages/feedback/page-feedback/src/types.ts`](../../packages/feedback/page-feedback/src/types.ts)
 
 <a id="ctxsessionfeedback--sessionfeedbackservice"></a>
 
