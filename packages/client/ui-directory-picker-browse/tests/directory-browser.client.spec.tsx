@@ -140,7 +140,7 @@ describe('DirectoryBrowser', () => {
     const note = 'locked to this account namespace'
     mount({
       listDirectory: vi.fn(async (path?: string) => ({
-        ...await listingFor(path),
+        ...listingFor(path),
         lockedRoot: { path: HOME, note },
       })),
     })
