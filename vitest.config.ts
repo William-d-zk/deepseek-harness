@@ -160,11 +160,6 @@ const processBoundTests = [
 
 export default defineConfig({
   plugins: [pathsPlugin(), standardDecoratorPlugin()],
-  // Package roots are solution-style tsconfig files (`files: []` plus
-  // references), so the per-file tsconfig lookup that decides JSX handling
-  // finds no `jsx` and falls back to the classic runtime, which no spec
-  // imports. Name the same runtime `tsconfig.base.client.json` declares.
-  esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
   test: {
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts', './scripts/test-dom-environment.ts'],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
