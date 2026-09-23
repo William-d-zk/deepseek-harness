@@ -85,9 +85,9 @@ The overlay POSTs `{ comment, url, element, elementPath, cssClasses, pathMatchCo
 
 ## Resolve verification
 
-`runVerifier` shells out to an optional page-capture runner (default `ego-browser`, overridable via `PAGE_FEEDBACK_VERIFIER` or an explicit command) and parses its stdout into a `VerificationEvidence` record:
+`runVerifier` shells out to an optional page-capture runner (default `ego-browser`, overridable via `PAGE_FEEDBACK_VERIFIER` or an explicit command) and parses its stdout into a `VerificationEvidence` record. The function is internal to the package (consumers compose it through their own carrier), so the call shape below stays an unchecked sketch:
 
-```ts
+```ts ignore-check
 await runVerifier({ url, elementPath, outDir })
 // → { mode: 'capture', evidenceDir, files, exitCode, anomalies }
 ```

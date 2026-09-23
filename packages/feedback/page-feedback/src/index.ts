@@ -31,11 +31,15 @@ export type { PageFeedbackService } from './types.ts'
 export { createPageFeedbackStore } from './store.ts'
 export { OVERLAY_JS, OVERLAY_MARKER } from './overlay.ts'
 
-/** Default per-user state directory (matches the harness feedback sibling). */
+/**
+ * Default per-user state directory (matches the harness feedback sibling).
+ * @returns the default SQLite path under the user's home directory.
+ */
 export function defaultDbPath(): string {
   return resolve(homedir(), '.dsh', 'feedback-page.db')
 }
 
+/** Configuration of the page-feedback plugin. */
 export interface Config {
   /** SQLite database path; defaults to `~/.dsh/feedback-page.db`. */
   dbPath?: string

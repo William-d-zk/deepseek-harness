@@ -88,9 +88,9 @@ Overlay POST `{ comment, url, element, elementPath, cssClasses, pathMatchCount, 
 <a id="resolve-verification"></a>
 ## 解析验证
 
-`runVerifier` 调用可选的页面截图 runner（默认 `ego-browser`，可用 `PAGE_FEEDBACK_VERIFIER` 或显式命令覆盖）并把其 stdout 解析为 `VerificationEvidence`：
+`runVerifier` 调用可选的页面截图 runner（默认 `ego-browser`，可用 `PAGE_FEEDBACK_VERIFIER` 或显式命令覆盖）并把其 stdout 解析为 `VerificationEvidence`。该函数是包内实现（消费方通过自己的 carrier 组合它），因此下面的调用形态保持为不检查的示意片段：
 
-```ts
+```ts ignore-check
 await runVerifier({ url, elementPath, outDir })
 // → { mode: 'capture', evidenceDir, files, exitCode, anomalies }
 ```

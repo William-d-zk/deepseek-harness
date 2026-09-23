@@ -25,7 +25,10 @@ import type {
 /** Async context of the current dispatch/stream open. */
 export const connectionAccountStorage = new AsyncLocalStorage<ConnectionAccountScope>()
 
-/** The account (or null) of the dispatch/stream currently being processed. */
+/**
+ * The account (or null) of the dispatch/stream currently being processed.
+ * @returns the account resolved for the current dispatch, or null outside one.
+ */
 export function currentConnectionAccount(): string | null {
   return connectionAccountStorage.getStore()?.account ?? null
 }

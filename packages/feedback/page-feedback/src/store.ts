@@ -72,7 +72,11 @@ interface VerificationRow {
   at: number
 }
 
-/** Create the store; `dbPath` may point to a temp file in tests. */
+/**
+ * Create the store; `dbPath` may point to a temp file in tests.
+ * @param dbPath - SQLite database path; parent directories are created.
+ * @returns the page-feedback service backed by that database.
+ */
 export function createPageFeedbackStore(dbPath: string): PageFeedbackService {
   mkdirSync(dirname(dbPath), { recursive: true })
   const db = new DatabaseSync(dbPath)

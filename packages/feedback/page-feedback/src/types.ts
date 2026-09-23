@@ -11,6 +11,7 @@
 
 /** Annotation lifecycle; terminal states have no outgoing transitions. */
 export const ANNOTATION_STATUSES = ['pending', 'acknowledged', 'resolved', 'dismissed'] as const
+/** One lifecycle state of an annotation. */
 export type AnnotationStatus = (typeof ANNOTATION_STATUSES)[number]
 
 /** Allowed transitions; terminal states have no exits. */

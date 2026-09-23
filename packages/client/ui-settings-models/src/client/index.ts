@@ -19,10 +19,14 @@ import { ModelsSection } from './ModelsSection.tsx'
 import type { ModelsSectionInjected } from './ModelsSection.tsx'
 import { DeepSeekOnboardingDialog } from './DeepSeekOnboardingDialog.tsx'
 import type { DeepSeekOnboardingInjected } from './DeepSeekOnboardingDialog.tsx'
+
+import { Config, ONBOARDING_CONFIG_GLOBAL } from '../onboarding-config.ts'
+
 import { ModelsSettingsStore } from './store.ts'
 import { createModelsOperations } from './operations.ts'
 import { createSettingsSchemaOperations } from './schema-operations.ts'
 import { en, zh, type ModelsKey } from './locales.ts'
+
 
 export type { ModelsSectionInjected, ModelsSectionProps } from './ModelsSection.tsx'
 export type { ModelsFooterOwnerProps, ProviderCardExtrasOwnerProps } from './slot-contract.ts'
@@ -37,6 +41,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.models'
+
 export type {
   ModelsSettingsState, ProviderDirectoryEntry, ProviderRow,
 } from './store.ts'
@@ -59,7 +64,7 @@ export function refreshIfLoaded(controller: ModelsSettingsStore): void {
  */
 export const inject = [
   'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings',
-  'settingsScope', 'settingsSchema',
+  'configForms', 'settingsSchema',
 ]
 
 /**
@@ -69,13 +74,17 @@ export const inject = [
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  const page = globalThis as Partial<Record<typeof ONBOARDING_CONFIG_GLOBAL, unknown>>
+  const payload = page[ONBOARDING_CONFIG_GLOBAL]
+  const configured = Config(payload === undefined ? {} : payload)
+  const credentialOnboarding = configured.credentialOnboarding && !('dshDesktop' in globalThis)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries')
 
   const schema = createSettingsSchemaOperations(ctx.settingsSchema)
   // Bound once here, where the Remote namespaces are declared in this plugin's
   // own `inject`; the cards receive callbacks and never a context.
   const operations = createModelsOperations(ctx)
-  const controller = new ModelsSettingsStore(ctx, schema, ctx.settingsScope.describe())
+  const controller = new ModelsSettingsStore(ctx, schema, ctx.configForms.describe())
   // Registration-time text (the nav label thunk) and the inject faces share
   // one bound translate; copy freshness rides the locale revision.
   const t = ctx.locale.bind(NS) as ModelsSectionInjected['t']
@@ -87,14 +96,16 @@ export function apply(ctx: ClientContext): void {
     t,
   })
   const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({
+    automatic: credentialOnboarding,
     controller,
     hooks: { models: controller.store },
     operations,
     schema,
     t,
   })
+
   // Pushed invalidations converge every open surface without polling. The
-  // settingsScope injection makes ui-settings activate first, and remote
+  // configForms injection makes ui-settings activate first, and remote
   // dispatch preserves listener order; its listener therefore starts the
   // mirror refresh before this store joins that refresh.
   ctx.effect(() => {
@@ -124,6 +135,7 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'deepseek-official',
+    children: { 'settings.models.sign-in': { kind: 'single', scope: 'root' } },
     order: 0,
     inject: deepSeekOnboardingInjected,
   }, DeepSeekOnboardingDialog))

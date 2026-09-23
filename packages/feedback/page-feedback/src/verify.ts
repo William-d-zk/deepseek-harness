@@ -15,6 +15,7 @@
 import { spawn } from 'node:child_process'
 import type { VerificationEvidence } from './types.ts'
 
+/** One resolve-verification request handed to the configured verifier command. */
 export interface ResolveVerifyInput {
   url: string
   /** Element CSS path for the focused element check (optional). */
@@ -25,12 +26,19 @@ export interface ResolveVerifyInput {
   outDir: string
 }
 
-/** Default verifier command (ego-browser is the AliothStudio-family runner). */
+/**
+ * Default verifier command (ego-browser is the AliothStudio-family runner).
+ * @returns the default executable name.
+ */
 export function defaultVerifierCommand(): string {
   return 'ego-browser'
 }
 
-/** Resolve the effective verifier command: env override, else the default. */
+/**
+ * Resolve the effective verifier command: env override, else the default.
+ * @param env - environment carrying `PAGE_FEEDBACK_VERIFIER`; defaults to `process.env`.
+ * @returns the command line the verifier runs.
+ */
 export function verifierCommandOf(env: NodeJS.ProcessEnv = process.env): string {
   const fromEnv = env.PAGE_FEEDBACK_VERIFIER
   return fromEnv !== undefined && fromEnv !== '' ? fromEnv : defaultVerifierCommand()
@@ -40,6 +48,10 @@ export function verifierCommandOf(env: NodeJS.ProcessEnv = process.env): string 
  * Run the configured verifier and return the captured evidence. The command
  * is any executable invocation the deployer controls; a shell runs it so
  * `PAGE_FEEDBACK_VERIFIER` may carry arguments (`ego-browser capture` style).
+ * @param input - annotation address, element expectation, and evidence directory.
+ * @param command - verifier command line; defaults to the resolved command.
+ * @returns the captured evidence, or a rejection when the verifier cannot run
+ *   or reports a failure.
  */
 export function runVerifier(
   input: ResolveVerifyInput,
