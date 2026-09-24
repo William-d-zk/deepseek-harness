@@ -2,6 +2,10 @@
 
 DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
 
+## Interaction (Alioth fork)
+
+Conversation with the user runs in Chinese, plain and direct: 与本仓库的所有对话交互一律使用中文说人话——先给结论，再给具体证据（文件、符号、命令输出、数值），不用敬语、客套或营销腔。Everything else authored here stays English — code, identifiers, comments, JSDoc, commit messages, docs, Agent Notes, and PR text, including this file; Chinese applies to conversation only.
+
 ## Pre-stable APIs and released Session data
 
 Public APIs are pre-stable; update every consumer. Follow [version/status](docs/session-format-status.md) and [type acknowledgements](docs/cookbook/reviewing-persistence-type-changes.md). [Adjacent migration](.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md) may add a version-named successor but never move, overwrite, or delete committed generations; predecessors imply neither fallback nor downgrade support. SQLite uses monotonic `SCHEMA_VERSION`.
