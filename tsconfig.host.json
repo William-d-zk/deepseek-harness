@@ -196,6 +196,8 @@
     "packages/typert/generator/tests/fixtures/**",
     "scripts/client-bundle-purity.spec.ts"
   ],
+  "files": [],
+  "files": [],
   "references": [
     { "path": "./packages/experimental/speech-to-text" },
     { "path": "./packages/experimental/speech-to-text-sensevoice" },
@@ -468,6 +470,7 @@
     { "path": "./packages/lsp/tool-lsp" },
     { "path": "./apps/cli" },
     { "path": "./apps/desktop-host" },
+    { "path": "./packages/feedback/page-feedback" },
     { "path": "./apps/desktop/tsconfig.host.json" }
   ]
 }
