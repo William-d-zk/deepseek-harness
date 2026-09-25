@@ -1,6 +1,55 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/feedback/page-feedback/README.md
-README.md: 99686bcc876f2c534c90aff620e41d11c570238a
-README.zh.md: f3b12357f6cd5ec2aa1b4cef13a56484e9d6e4da
+/:
+  en: ed00278343431369
+  zh: 30a753b6394177ab
+/deepseek-ai-dsh-page-feedback:
+  en: e0c731ca3fc8060a
+  zh: ff8beba2a29e8715
+/deepseek-ai-dsh-page-feedback/summary:
+  en: 8d88ca4ad72f6f06
+  zh: 3e7a4fce07a17131
+/deepseek-ai-dsh-page-feedback/table-of-contents:
+  en: 4dfe9893e48034e8
+  zh: 39946dfda9691cf0
+/deepseek-ai-dsh-page-feedback/use-this-package:
+  en: 5b791f4900c7d7be
+  zh: bf7e5232df35e1df
+/deepseek-ai-dsh-page-feedback/use-this-package/configuration:
+  en: 942f537a2acededb
+  zh: e407d3913200c40c
+/deepseek-ai-dsh-page-feedback/use-this-package/mounting:
+  en: d34858513db6acfb
+  zh: ed977345a2759f52
+/deepseek-ai-dsh-page-feedback/understand-the-implementation:
+  en: 693b748d15e2cffa
+  zh: 0b4982803f9caa56
+/deepseek-ai-dsh-page-feedback/overlay-asset:
+  en: faf073f64d282b87
+  zh: c324669d77ed8a7b
+/deepseek-ai-dsh-page-feedback/resolve-verification:
+  en: 32a78b98cac76c31
+  zh: 45e524368457c70b
+/deepseek-ai-dsh-page-feedback/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-page-feedback/model-experience/local-page-annotation-state:
+  en: e4272dd57d18d6e4
+  zh: 082aa5d58aef21a3
+/deepseek-ai-dsh-page-feedback/model-experience/local-page-annotation-state/what-the-model-sees:
+  en: a130ec01368beb07
+  zh: c364bcf9fd74062b
+/deepseek-ai-dsh-page-feedback/model-experience/local-page-annotation-state/token-effect:
+  en: bd69b3c82a096acd
+  zh: 867a559b08f0ac85
+/deepseek-ai-dsh-page-feedback/model-experience/local-page-annotation-state/kv-cache-effect:
+  en: e80eb0d971470507
+  zh: 13112973053e8ad9
+/deepseek-ai-dsh-page-feedback/known-limitations-and-deferred-work:
+  en: a03f500b9a34a42b
+  zh: e5b5ff22337016f1
+/deepseek-ai-dsh-page-feedback/known-limitations-and-deferred-work/dev-note:
+  en: 9678dfb1b422bb5e
+  zh: 0f819358e075c9fd

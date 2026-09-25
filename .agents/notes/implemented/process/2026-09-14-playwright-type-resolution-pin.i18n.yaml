@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-14-playwright-type-resolution-pin.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-09-14-playwright-type-resolution-pin.md
-2026-09-14-playwright-type-resolution-pin.md: d77fadaaef594b8719b7939087280669e6ff2002
-2026-09-14-playwright-type-resolution-pin.zh.md: a844571552fe58022bff045eb41589b0f871b2b0
+/agent-note-one-playwright-resolution-target-for-every-program-in-this-tree:
+  en: 1aa2c9976f36cae1
+  zh: 0032cdb0b5828fd9
+/agent-note-one-playwright-resolution-target-for-every-program-in-this-tree/problem:
+  en: 71dd0a3bb222d25a
+  zh: 03a9f2b4e4fe1b63
+/agent-note-one-playwright-resolution-target-for-every-program-in-this-tree/decision:
+  en: 7cba0a08f1a70dd3
+  zh: 0497a51de11182fe
+/agent-note-one-playwright-resolution-target-for-every-program-in-this-tree/alternatives-considered:
+  en: 65fe2082056edb07
+  zh: fbd093ac186898d5
+/agent-note-one-playwright-resolution-target-for-every-program-in-this-tree/consequences:
+  en: a8891332daa9f57c
+  zh: b739fac05e515cc8

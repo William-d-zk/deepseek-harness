@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-page-feedback",
   "description": "Visual page-annotation feedback loop: on-page overlay capture, a persistent pending/acknowledged/resolved/dismissed store with audit events, long-poll watch, and an ego-browser resolve-verification seam — for human-driven frontend debugging",
-  "version": "0.1.7-rc.1",
+  "version": "0.1.7-rc.2",
   "publishConfig": {
     "access": "public"
   },

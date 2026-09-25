@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-14-remove-product-welcome-notice.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/simplification/2026-09-14-remove-product-welcome-notice.md
-2026-09-14-remove-product-welcome-notice.md: 1478ef8129dd757e676ea9ac17744701d8e10055
-2026-09-14-remove-product-welcome-notice.zh.md: 6c2530573e8006bcaa003423be7271f90db05d5f
+/agent-note-remove-the-product-welcome-notice:
+  en: 97dbb25df919fc02
+  zh: 54b3300653889b03
+/agent-note-remove-the-product-welcome-notice/problem:
+  en: 08d0a5962d01d899
+  zh: 670cb2ece9ebe715
+/agent-note-remove-the-product-welcome-notice/decision:
+  en: 81588f4725d1a4f2
+  zh: 8717ae3ca7e082e5
+/agent-note-remove-the-product-welcome-notice/verification:
+  en: 1fe9766c584e03f8
+  zh: e5c75978508cf687
+/agent-note-remove-the-product-welcome-notice/alternatives-considered:
+  en: 5be2ff91c7b2d7a3
+  zh: 9b1d7b30a9b37bc5
+/agent-note-remove-the-product-welcome-notice/consequences:
+  en: 638bcb0fb5ab698a
+  zh: b326713ea2a4762b

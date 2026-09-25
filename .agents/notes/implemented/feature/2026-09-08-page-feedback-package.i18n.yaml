@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-08-page-feedback-package.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-08-page-feedback-package.md
-2026-09-08-page-feedback-package.md: e4ee713d836a714c86360f669a07ddd102663501
-2026-09-08-page-feedback-package.zh.md: f5650648bb4e03f30687949e3e00ce03e8fadb0a
+/agent-note-deepseek-ai-dsh-page-feedback-visual-page-annotation-store-overlay-asset-and-verifier-seam:
+  en: cfa6073abbd53248
+  zh: c0b2cb3152562ce0
+/agent-note-deepseek-ai-dsh-page-feedback-visual-page-annotation-store-overlay-asset-and-verifier-seam/problem:
+  en: 5f5edc60affab767
+  zh: 8ff0eb3bb459b590
+/agent-note-deepseek-ai-dsh-page-feedback-visual-page-annotation-store-overlay-asset-and-verifier-seam/decision:
+  en: bdedcc5838ceddf9
+  zh: d95b5d93e3f6a8ec
+/agent-note-deepseek-ai-dsh-page-feedback-visual-page-annotation-store-overlay-asset-and-verifier-seam/alternatives-considered:
+  en: 7fb06fd06141e59d
+  zh: cc0900181697c7e8
+/agent-note-deepseek-ai-dsh-page-feedback-visual-page-annotation-store-overlay-asset-and-verifier-seam/consequences:
+  en: 86f53ab6e561fe98
+  zh: d5c22c874ae7eba3

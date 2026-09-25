@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-08-typescript-7-native-migration.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/architecture/2026-09-08-typescript-7-native-migration.md
-2026-09-08-typescript-7-native-migration.md: 1321736a226fb50181406a67281207a54ff07734
-2026-09-08-typescript-7-native-migration.zh.md: 8422ee175826223768d0baaf5717feb85f570f13
+/agent-note-typescript-7-native-migration:
+  en: 15bab2ae038dfea9
+  zh: 689d94831f1c0c13
+/agent-note-typescript-7-native-migration/problem:
+  en: 7ae41c60f2a8b21c
+  zh: cdc27fbee94f10b9
+/agent-note-typescript-7-native-migration/proposal:
+  en: e0b5a49b92d53e18
+  zh: f20fadff64d4b2f5
+/agent-note-typescript-7-native-migration/alternatives-considered:
+  en: 7f840cae1dc105a6
+  zh: dc2c06bfed3cb89f
+/agent-note-typescript-7-native-migration/acceptance-criteria:
+  en: 754b6731e33added
+  zh: 0d403529eb51df42
+/agent-note-typescript-7-native-migration/risks:
+  en: 11ed95dc3ae914b9
+  zh: 01e3d23b594ffeea

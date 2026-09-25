@@ -913,7 +913,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                   className={css.pathInput}
                   value={pathDraft}
                   aria-label={t('browser.editPath')}
-                  autoFocus
+                  data-modal-autofocus
                   ref={pathInputRef}
                   disabled={parentInert}
                   onChange={(event) => {
