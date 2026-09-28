@@ -197,7 +197,6 @@
     "scripts/client-bundle-purity.spec.ts"
   ],
   "files": [],
-  "files": [],
   "references": [
     { "path": "./packages/experimental/speech-to-text" },
     { "path": "./packages/experimental/speech-to-text-sensevoice" },
