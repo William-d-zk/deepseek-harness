@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { workspaceNamespaceFilter, workspacePathInNamespace } from '../src/client/navigation.ts'
+import { fallbackWorkspacePath, workspaceNamespaceFilter, workspacePathInNamespace } from '../src/client/navigation.ts'
 
 // The gate flags are deployment opt-in: the dsh-alioth web gate script writes
 // them; these tests pin the default-off reading and the namespace matching
@@ -38,5 +38,18 @@ describe('workspaceNamespaceFilter', () => {
   it('returns the caller namespace once the gate script records it', () => {
     globalThis.localStorage.setItem('dsh.uiWorkspace.namespaceFilter', 'ns1')
     expect(workspaceNamespaceFilter()).toBe('ns1')
+  })
+})
+
+describe('fallbackWorkspacePath', () => {
+  it('stays off while the deployment flag is unset or blank', () => {
+    expect(fallbackWorkspacePath()).toBeUndefined()
+    globalThis.localStorage.setItem('dsh.uiWorkspace.fallbackWorkspacePath', '')
+    expect(fallbackWorkspacePath()).toBeUndefined()
+  })
+
+  it('returns the declared fallback path once the gate script records it', () => {
+    globalThis.localStorage.setItem('dsh.uiWorkspace.fallbackWorkspacePath', '/apps/U-x/Apps/default')
+    expect(fallbackWorkspacePath()).toBe('/apps/U-x/Apps/default')
   })
 })

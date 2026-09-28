@@ -68,6 +68,26 @@ export function workspacePathInNamespace(path: string, namespace: string): boole
   return new RegExp(`(?:^|/)${namespace}(?=/|$)`).test(path)
 }
 
+/**
+ * AppCreator fallback workspace: when the web gate script declares the
+ * deployment's fallback path (`dsh.uiWorkspace.fallbackWorkspacePath` — the
+ * account's default app, `Pre-Proc/{ns}/Apps/default`), a Session that no
+ * Workspace accounts for belongs to the Workspace at that path: startup
+ * restoration binds there (registering the directory when the entry is absent)
+ * and the sidebar renders such Sessions inside that Workspace instead of the
+ * trailing Ungrouped bucket. The deployment keeps a default app precisely so
+ * nothing is ever unaccounted. Opt-in by deployment, default off.
+ * @returns the fallback workspace path, or undefined when the deployment declares none.
+ */
+export function fallbackWorkspacePath(): string | undefined {
+  try {
+    const value = globalThis.localStorage.getItem('dsh.uiWorkspace.fallbackWorkspacePath')
+    return typeof value === 'string' && value !== '' ? value : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
   /**
@@ -409,15 +429,49 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       && !workspaces.archivedSessionIds.includes(summary.id)) {
       sessionId = await this.reuseBlank(workspace.workspaceId, summary.id)
     }
-    let target = workspace?.workspaceId ?? recentWorkspace(workspaces.items, sessions.byId)
+    // The fallback gate is read synchronously: an undeclared deployment keeps the
+    // original control flow (no await on this path at all).
+    const fallbackPath = fallbackWorkspacePath()
+    const fallbackId = fallbackPath === undefined
+      ? undefined
+      : await this.fallbackWorkspaceId(fallbackPath, workspaces, navigation)
+    const target = workspace?.workspaceId
+      ?? fallbackId
+      ?? recentWorkspace(workspaces.items, sessions.byId)
+    let selected = target
     if (target === undefined && workspaces.items.length === 0 && sessions.ids.length === 0) {
       const prepared = await this.initializeDefaultWorkspace(navigation)
       if (navigation.aborted) return
-      target = prepared?.workspaceId
+      selected = prepared?.workspaceId
     }
-    if (sessionId === undefined && target !== undefined) sessionId = await this.connectWorkspace(target)
+    if (sessionId === undefined && selected !== undefined) sessionId = await this.connectWorkspace(selected)
     if (sessionId !== undefined && !navigation.aborted) {
       this.replaceMain(sessionId, navigation, 'preserve')
+    }
+  }
+
+  /**
+   * The deployment's declared fallback Workspace — the account's default app — so
+   * a Session nothing accounts for lands there rather than in the trailing
+   * Ungrouped bucket. A declared path with no entry is registered (the directory
+   * is provisioned with the account); a failure simply yields no fallback.
+   * @param workspaces - current Workspace snapshot.
+   * @param signal - caller lifetime.
+   * @returns the fallback Workspace id, or undefined when none applies.
+   */
+  private async fallbackWorkspaceId(
+    path: string,
+    workspaces: WorkspaceSnapshot,
+    signal: AbortSignal,
+  ): Promise<WorkspaceId | undefined> {
+    const existing = workspaces.items.find(item => item.path === path)
+    if (existing !== undefined) return existing.workspaceId
+    try {
+      const created = await this.workspaces.create({ path })
+      return signal.aborted ? undefined : created.workspaceId
+    } catch {
+      // Directory gone or refused: the other candidates still apply.
+      return undefined
     }
   }
 

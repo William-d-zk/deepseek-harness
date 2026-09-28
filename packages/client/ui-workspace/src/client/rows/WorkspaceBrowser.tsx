@@ -15,7 +15,7 @@
  * action callbacks and hosts no action surface.
  */
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
-import { workspaceNamespaceFilter, workspacePathInNamespace } from '../navigation.ts'
+import { fallbackWorkspacePath, workspaceNamespaceFilter, workspacePathInNamespace } from '../navigation.ts'
 import clsx from 'clsx'
 import {
   Button, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
@@ -927,6 +927,15 @@ export function WorkspaceBrowser({
       return summary.cwd !== undefined && workspacePathInNamespace(summary.cwd, namespace)
     })
   }, [list, workspaces])
+  // AppCreator fallback (deployment gate): a Session no Workspace accounts for
+  // belongs to the declared fallback Workspace — the account's default app — so
+  // the trailing Ungrouped bucket never renders. Without the gate nothing moves.
+  const fallbackId = useMemo(() => {
+    const path = fallbackWorkspacePath()
+    if (path === undefined) return undefined
+    return workspaces.find(workspace => workspace.path === path)?.workspaceId
+  }, [workspaces])
+  const accountedElsewhereIds = fallbackId === undefined ? [] : ungroupedMemberIds
   const orderState = useMemo(
     () => ({ pinnedSessionIds, archivedSessionIds }),
     [archivedSessionIds, pinnedSessionIds],
@@ -937,7 +946,8 @@ export function WorkspaceBrowser({
   )
   const flatMemberIds = useMemo(() => sessionMemberIds(list), [list])
   const orderedWorkspaces = useMemo(() => workspaces.map((workspace) => {
-    const memberIds = workspace.sessionIds
+    const fallback = workspace.workspaceId === fallbackId ? accountedElsewhereIds : []
+    const memberIds = [...workspace.sessionIds, ...fallback]
     const baseOrder = orderBy === 'updated'
       ? orderByRecency(memberIds, list.byId)
       : reconcileManualOrder(memberIds, sessionOrderByAccount[workspace.workspaceId], list.byId, orderState)
@@ -948,7 +958,7 @@ export function WorkspaceBrowser({
         currentBlank !== undefined && memberIds.includes(currentBlank) ? currentBlank : undefined,
       ),
     }
-  }), [currentBlank, list.byId, orderBy, orderState, sessionOrderByAccount, workspaces])
+  }), [accountedElsewhereIds, currentBlank, fallbackId, list.byId, orderBy, orderState, sessionOrderByAccount, workspaces])
   // AppCreator namespace isolation (deployment opt-in via localStorage):
   // only workspaces whose path belongs to the caller's namespace render;
   // every workspace keeps its retained account order in the store.
@@ -958,14 +968,16 @@ export function WorkspaceBrowser({
     return orderedWorkspaces.filter(workspace => workspacePathInNamespace(workspace.path, namespace))
   }, [orderedWorkspaces])
   const orderedUngroupedSessionIds = useMemo(() => {
+    // A declared fallback empties the bucket: those Sessions render under it.
+    const members = fallbackId === undefined ? ungroupedMemberIds : []
     const baseOrder = orderBy === 'updated'
-      ? orderByRecency(ungroupedMemberIds, list.byId)
-      : reconcileManualOrder(ungroupedMemberIds, sessionOrderByAccount[UNGROUPED_KEY], list.byId, orderState)
+      ? orderByRecency(members, list.byId)
+      : reconcileManualOrder(members, sessionOrderByAccount[UNGROUPED_KEY], list.byId, orderState)
     return pinCurrentBlank(
       baseOrder,
-      currentBlank !== undefined && ungroupedMemberIds.includes(currentBlank) ? currentBlank : undefined,
+      currentBlank !== undefined && members.includes(currentBlank) ? currentBlank : undefined,
     )
-  }, [currentBlank, list.byId, orderBy, orderState, sessionOrderByAccount, ungroupedMemberIds])
+  }, [currentBlank, fallbackId, list.byId, orderBy, orderState, sessionOrderByAccount, ungroupedMemberIds])
   const orderedFlatSessionIds = useMemo(() => {
     const baseOrder = orderBy === 'updated'
       ? orderByRecency(flatMemberIds, list.byId)

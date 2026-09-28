@@ -1273,6 +1273,21 @@ describe('WorkspaceBrowser', () => {
     expect(startSession).not.toHaveBeenCalled()
   })
 
+  it('renders a loose session under the declared fallback workspace instead of the Ungrouped bucket', () => {
+    // The AppCreator gate names the account's default app as the fallback, so a
+    // Session nothing accounts for belongs there — the bucket never renders.
+    localStorage.setItem('dsh.uiWorkspace.fallbackWorkspacePath', '/projects/default')
+    mount({
+      useSessions: hook(sessionState([summary('loose', 1)], { main: sid('loose') })),
+      useWorkspaces: hook(workspaceState([workspace('default', [])])),
+    })
+    const workspaceRow = screen.getByText('default')
+    const looseRow = screen.getByText('loose')
+    expect(screen.queryByText('未分组')).toBeNull()
+    // The row renders inside the fallback workspace's group (after its header).
+    expect(workspaceRow.compareDocumentPosition(looseRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('keeps an already-expanded group when the selection moves within it', () => {
     const first = sessionState([summary('a', 2), summary('b', 1)], { main: sid('a') })
     const b = mount({
