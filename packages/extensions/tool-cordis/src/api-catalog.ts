@@ -2141,6 +2141,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'options', description: 'optional cancellation.' }],
         returns: 'one snapshot per stored session.',
       },
+      {
+        signature: 'abstract delete(id: SessionId, options?: SessionPersistenceDeleteOptions): Promise<boolean>',
+        description: 'Durably delete one stored session and every record this backend keeps for it, so no later `stat`, `list`, or `open` observes it.\n\nA backend MUST first settle this process\'s own state for the id: open handles for it are closed before the bytes go (a write handle\'s close drains its routed buffer durably and gives up the id\'s live event route, so an event committed after the removal cannot recreate the artifact), and a created-but-unmaterialized registration is erased without ever reaching the medium. Callers that hold a handle for the id must treat it as closed: the session it addressed no longer exists.',
+        parameters: [{ name: 'id', description: 'the stored session to delete.' }, { name: 'options', description: 'optional cancellation.' }],
+        returns: '`true` when this backend held the session — a durable artifact, an open handle, or a created-but-unmaterialized registration — and `false` when it held none. The call is idempotent: a repeat, or a lost race with another remover, resolves `false` instead of failing.',
+      },
     ],
   },
   {
@@ -2171,6 +2177,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Durably checkpoint one live session NOW (all mandatory points call this; tests and carriers may too). The registry cut is snapshotted at this boundary (states are live references), then the session\'s record is replaced on the domain\'s write chain. NOT fail-soft — callers on the fail-soft paths contain it.',
         parameters: [{ name: 'session', description: 'the live session to checkpoint.' }],
         returns: 'resolution after durability and event emission.',
+      },
+      {
+        signature: 'async forget(id: SessionId): Promise<void>',
+        description: 'Drop one session\'s stored record and its write-behind bookkeeping, so a session deleted on the Host leaves no cache document behind and no armed trigger writes one back. The removal runs on the domain write chain like every other mutation here — durability first, then memory — and the bookkeeping is dropped synchronously before it, so a pending interval trigger cannot queue a replacement write while the removal is in flight. An id this cache does not hold is a no-op, and other sessions\' rows are untouched. NOT fail-soft — a caller whose own work already concluded contains the rejection.',
+        parameters: [{ name: 'id', description: 'the session whose cached record is dropped.' }],
+        returns: 'resolution after the domain applied the removal durably.',
       },
       {
         signature: 'coldSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[], ): ProjectionSnapshot',
@@ -3626,6 +3638,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the complete resulting archive set.',
       },
       {
+        signature: '@Remote(\'deleteSession\') deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue>',
+        description: 'Permanently delete one known Session\'s workspace accounting and durable records.',
+        parameters: [{ name: 'request', description: 'Session identity to delete.' }],
+        returns: 'deletion confirmation.',
+      },
+      {
         signature: '@Remote(\'pinSession\') pinSession(request: WorkspacePinSessionRequest): Promise<WorkspacePinValue>',
         description: 'Surface one known unarchived Session ahead of unpinned Sessions.',
         parameters: [{ name: 'request', description: 'Session identity to pin.' }],
@@ -3728,6 +3746,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'archiveSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<void>',
         description: 'Archive one session durably. The session must exist (live or in session persistence); its workspace accounting — or lack of one — is irrelevant. Without `stopActivity` the session must also be inactive: the `workspace/session-activity` waterfall is asked once, and any reported activity rejects with WorkspaceActiveSessionError before anything is written. With `stopActivity` the archive is written without an activity check, and the `workspace/session-stop` providers are then asked to stop the session\'s work: the durable archive set is what a provider\'s `agent/pre-step` gate reads, so every wake the stops induce is already blocked. Archiving drops the session\'s pin in the same durable write (pinning and archival are mutually exclusive). An already archived id resolves without writing, asking, or stopping.',
         parameters: [{ name: 'sessionId', description: 'The session to archive.' }, { name: 'options', description: 'Whether running work is stopped instead of refusing.' }],
+        returns: 'resolution after durability and, with `stopActivity`, after every stop request was issued.',
+      },
+      {
+        signature: 'deleteSession(sessionId: SessionId, options: DeleteSessionOptions = {}): Promise<void>',
+        description: 'Permanently delete one session: its workspace accounting and its durable records. Unlike archiveSession, nothing about the session survives — it leaves every workspace\'s `sessionIds`, the archive set, and the pin set, the persistence backend removes the stored log, and the projection cache drops its derived row, so no bucket, no restart, and no stale cache document shows it again.\n\nThe session must exist (live or in session persistence); without `stopActivity` it must also be inactive, asked exactly as archiving asks: one `workspace/session-activity` waterfall, and any reported activity rejects with WorkspaceActiveSessionError before anything is written. With `stopActivity` the deletion skips the activity check, so the `workspace/session-stop` providers are asked to stop the session\'s work before its records are removed.',
+        parameters: [{ name: 'sessionId', description: 'The session to delete.' }, { name: 'options', description: 'Whether running work is stopped instead of refusing.' }],
         returns: 'resolution after durability and, with `stopActivity`, after every stop request was issued.',
       },
       {
@@ -4404,9 +4428,9 @@ export const EVENT_API: readonly EventApiEntry[] = [
     name: 'workspace/session-stop',
     mode: 'parallel',
     signature: '\'workspace/session-stop\'(request: SessionActivityRequest): Promise<void> | void',
-    summary: 'Stop a session\'s running work because the caller archived it with `stopActivity`; the archive set is durable when this dispatches.',
-    description: 'Stop a session\'s running work because the caller archived it with `stopActivity`; the archive set is durable when this dispatches. Each provider stops its own families — cancelling a turn, its subagent descendants, owned jobs, or active schedules — through the same cancel paths the user\'s own stop actions use, so the session log ends every open turn regularly and a later unarchive can continue the conversation. Listeners issue their stop requests without waiting for running work to settle; a listener may await its own durability barrier. A rejection is logged by the registry and does not undo the archive.',
-    parameters: [{ name: 'request', description: 'the session being archived.' }],
+    summary: 'Stop a session\'s running work because the caller archived it with `stopActivity`, or deleted it with the same option; the archive set or the removal is durable when this dispatches.',
+    description: 'Stop a session\'s running work because the caller archived it with `stopActivity`, or deleted it with the same option; the archive set or the removal is durable when this dispatches. Each provider stops its own families — cancelling a turn, its subagent descendants, owned jobs, or active schedules — through the same cancel paths the user\'s own stop actions use, so the session log ends every open turn regularly and a later unarchive can continue the conversation. Listeners issue their stop requests without waiting for running work to settle; a listener may await its own durability barrier. A rejection is logged by the registry and does not undo the archive or the deletion.',
+    parameters: [{ name: 'request', description: 'the session being archived or deleted.' }],
   },
 ]
 
@@ -5059,6 +5083,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'DeepSeekLlmApiJson',
     declaration: 'export type DeepSeekLlmApiJson = null | boolean | number | string | DeepSeekLlmApiJson[] | {\n    [key: string]: DeepSeekLlmApiJson;\n};',
+  },
+  {
+    name: 'DeleteSessionOptions',
+    declaration: 'export interface DeleteSessionOptions {\n    readonly stopActivity?: boolean;\n}',
   },
   {
     name: 'DeliveryRetentionBounds',
@@ -6717,6 +6745,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionPersistenceCreateOptions {\n    readonly signal?: AbortSignal;\n    readonly inheritedEventCount?: SessionLogOffset;\n}',
   },
   {
+    name: 'SessionPersistenceDeleteOptions',
+    declaration: 'export interface SessionPersistenceDeleteOptions {\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
     name: 'SessionPersistenceListOptions',
     declaration: 'export interface SessionPersistenceListOptions {\n    readonly signal?: AbortSignal;\n}',
   },
@@ -8059,6 +8091,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorkspaceDeleteRequest',
     declaration: 'export interface WorkspaceDeleteRequest {\n    readonly workspaceId: WorkspaceId;\n}',
+  },
+  {
+    name: 'WorkspaceDeleteSessionRequest',
+    declaration: 'export interface WorkspaceDeleteSessionRequest {\n    readonly sessionId: SessionId;\n    readonly stopActivity?: boolean;\n}',
+  },
+  {
+    name: 'WorkspaceDeleteSessionValue',
+    declaration: 'export interface WorkspaceDeleteSessionValue {\n    readonly deleted: true;\n}',
   },
   {
     name: 'WorkspaceDeleteValue',

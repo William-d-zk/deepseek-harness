@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import {
   Button, IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular,
   IconChevronRightOutlineRegular, IconChevronUpOutlineRegular, IconCloseOutlineRegular,
-  IconEditOutlineRegular, MarkdownText,
+  IconEditOutlineRegular, IconStopFillRegular, MarkdownText,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   planReviewOf,
@@ -120,15 +120,16 @@ export function QuestionComposer(props: QuestionComposerProps) {
         t={props.t}
         useStore={props.useStore}
         actions={props.actions}
+        stopRun={() => props.stopRun()}
       />
     )
     : <PlanReviewPanel key={question.key} pending={question} review={review} t={props.t} renderSlot={props.renderSlot} />
 }
 
 type QuestionFlowProps =
-  { pending: PendingQuestion } & Pick<QuestionComposerProps, 't' | 'useStore' | 'actions'>
+  { pending: PendingQuestion } & Pick<QuestionComposerProps, 't' | 'useStore' | 'actions' | 'stopRun'>
 
-function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
+function QuestionFlow({ pending, t, useStore, actions, stopRun }: QuestionFlowProps) {
   const questions = pending.questions
   const markdownLabels = useMemo(() => ({
     code: { copyLabel: t('copy'), copiedLabel: t('copied'), toolbarLabels: { codeLabel: t('codeBlock.title'), wrapLabel: t('codeBlock.wrap'), unwrapLabel: t('codeBlock.unwrap') } },
@@ -173,6 +174,15 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
         setBusy(null)
         setError({ text: cause instanceof Error ? cause.message : String(cause) })
       })
+  }
+
+  // The card owns the composer seat while it is up, so it carries the Stop
+  // affordance the hidden composer bar would otherwise show.
+  const stopFlow = (): void => {
+    setError(null)
+    void stopRun()?.catch((cause: unknown) => {
+      setError({ text: cause instanceof Error ? cause.message : String(cause) })
+    })
   }
 
   const updateDraft = (
@@ -288,6 +298,13 @@ function QuestionFlow({ pending, t, useStore, actions }: QuestionFlowProps) {
             </h2>
           </div>
           <div className={css.headerActions}>
+            <button
+              type="button" className={css.iconButton} aria-label={t('nav.stopRun')}
+              title={t('nav.stopRun')}
+              disabled={busy !== null} onClick={stopFlow}
+            >
+              <IconStopFillRegular />
+            </button>
             <button
               type="button" className={css.iconButton}
               aria-label={t(minimized ? 'nav.maximize' : 'nav.minimize')}

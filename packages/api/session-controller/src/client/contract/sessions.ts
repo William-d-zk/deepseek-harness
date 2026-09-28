@@ -108,6 +108,18 @@ export interface ISessions {
    */
   refresh(): Promise<void>
   /**
+   * Drop one Session from the Client list because the caller's Host operation
+   * removed it permanently (a Session deletion). Applies the same local
+   * removal a forwarded `api-session/removed` event applies: the row leaves
+   * the list — including from a list pull already in flight, so a response
+   * that left the Host before the deletion cannot resurrect it — a resident
+   * instance is flagged removed rather than disposed, and reference counting
+   * is untouched. Whether a later authoritative pull reports the Session
+   * again stays the Host's answer, exactly as it does for a forwarded removal.
+   * @param sessionId - deleted Session identity.
+   */
+  removeSession(sessionId: SessionId): void
+  /**
    * Search the Host's visible message-content index. Results stay
    * request-local; the list snapshot remains the metadata authority.
    * @param query - non-blank literal phrase.

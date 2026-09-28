@@ -272,6 +272,24 @@ export class SessionProjectionCache extends Service {
   }
 
   /**
+   * Drop one session's stored record and its write-behind bookkeeping, so a
+   * session deleted on the Host leaves no cache document behind and no armed
+   * trigger writes one back. The removal runs on the domain write chain like
+   * every other mutation here — durability first, then memory — and the
+   * bookkeeping is dropped synchronously before it, so a pending interval
+   * trigger cannot queue a replacement write while the removal is in flight.
+   * An id this cache does not hold is a no-op, and other sessions' rows are
+   * untouched. NOT fail-soft — a caller whose own work already concluded
+   * contains the rejection.
+   * @param id - the session whose cached record is dropped.
+   * @returns resolution after the domain applied the removal durably.
+   */
+  async forget(id: SessionId): Promise<void> {
+    this.dropDirty(id)
+    await this.requireTable().delete(id)
+  }
+
+  /**
    * Cold-read one session's projections from its complete log. Each unit is
    * seeded from the identity-checked cached rows — the registry skips `apply`
    * for the already-folded prefix (events at or below the row's `seq`) — and
@@ -382,6 +400,19 @@ export class SessionProjectionCache extends Service {
     if (state.timer !== undefined) {
       clearTimeout(state.timer)
       state.timer = undefined
+    }
+  }
+
+  /**
+   * Drop one session id's write-behind bookkeeping, disarming its interval
+   * trigger. The map is keyed by the live Session object, so the entry is
+   * found by id; a cleaned session's entry is dropped with an armed one's.
+   */
+  private dropDirty(id: SessionId): void {
+    for (const [session, state] of this.dirty) {
+      if (session.id !== id) continue
+      if (state.timer !== undefined) clearTimeout(state.timer)
+      this.dirty.delete(session)
     }
   }
 

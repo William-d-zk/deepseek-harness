@@ -181,6 +181,21 @@ hydratePrepared( session: Session, events: readonly SessionEvent[], ): Projectio
 async write(session: Session): Promise<void>
 
 /**
+ * Drop one session's stored record and its write-behind bookkeeping, so a
+ * session deleted on the Host leaves no cache document behind and no armed
+ * trigger writes one back. The removal runs on the domain write chain like
+ * every other mutation here — durability first, then memory — and the
+ * bookkeeping is dropped synchronously before it, so a pending interval
+ * trigger cannot queue a replacement write while the removal is in flight.
+ * An id this cache does not hold is a no-op, and other sessions' rows are
+ * untouched. NOT fail-soft — a caller whose own work already concluded
+ * contains the rejection.
+ * @param id - the session whose cached record is dropped.
+ * @returns resolution after the domain applied the removal durably.
+ */
+async forget(id: SessionId): Promise<void>
+
+/**
  * Cold-read one session's projections from its complete log. Each unit is
  * seeded from the identity-checked cached rows — the registry skips `apply`
  * for the already-folded prefix (events at or below the row's `seq`) — and
@@ -196,7 +211,7 @@ async write(session: Session): Promise<void>
 coldSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[], ): ProjectionSnapshot
 ```
 
-Types: [Session](session.md) · [SessionEvent](session.md) · [SessionHeader](persistence.md) · [SessionLogOffset](session.md)
+Types: [Session](session.md) · [SessionEvent](session.md) · [SessionHeader](persistence.md) · [SessionId](core.md) · [SessionLogOffset](session.md)
 
 Source: [`packages/session/session-projection-cache/src/index.ts`](../../packages/session/session-projection-cache/src/index.ts)
 

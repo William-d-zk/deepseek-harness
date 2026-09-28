@@ -132,6 +132,11 @@ class TracePersistence extends SessionPersistence {
     TracePersistence.afterList?.()
     return Promise.resolve(result)
   }
+
+  /** Remove one entry here; nothing buffers, so no handle needs settling. */
+  delete(id: SessionIdType): Promise<boolean> {
+    return Promise.resolve(TracePersistence.entries.delete(id))
+  }
 }
 
 async function queryContext(): Promise<Context> {

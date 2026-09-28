@@ -290,6 +290,7 @@ export type SessionRowActionProps<Injected extends object = object> =
 export type RowToast =
   | { kind: 'archived'; sessionId: SessionId }
   | { kind: 'stoppedAndArchived'; sessionId: SessionId }
+  | { kind: 'deleted'; sessionId: SessionId }
   | { kind: 'pinFailed' }
   | { kind: 'unpinFailed' }
   | { kind: 'archivedNotOpenable' }
@@ -378,6 +379,55 @@ export interface SessionArchiveConfirmInjected {
   stopAndArchiveSession: (sessionId: SessionId) => Promise<void>
 }
 
+/**
+ * Delete action share (menu row and hover button). The callbacks carry the
+ * whole behavior: raising the destructive confirmation, and the Host call the
+ * confirmation makes. The deletion itself is irreversible, so the action
+ * never deletes without the confirmation.
+ */
+export interface DeleteSessionInjected {
+  /**
+   * Ask for the destructive confirmation: deleting a Session removes its
+   * workspace accounting and its durable records, so the dialog names the
+   * Session and what goes with it before anything happens.
+   */
+  requestSessionDelete: (sessionId: SessionId) => void
+}
+
+/**
+ * A deletion the delete action asked to confirm. `running` is the row's
+ * status when the request was raised: confirming a running Session stops its
+ * work first (`stopActivity`), because the Host refuses to delete records out
+ * from under a turn that still writes them.
+ */
+export interface SessionDeleteConfirmRequest {
+  /** Session to delete. */
+  sessionId: SessionId
+  /** The row's display title, named in the dialog. */
+  displayTitle: string
+  /** Whether the Session was running when the deletion was requested. */
+  running: boolean
+}
+
+/**
+ * Delete-confirmation dialog share: the pending confirmation, its settlement,
+ * and the Host hop that deletes for good.
+ */
+export interface SessionDeleteConfirmInjected {
+  hooks: {
+    /** The confirmation asked for, until the dialog consumes or cancels it. */
+    deleteRequest: HostObservable<SessionDeleteConfirmRequest | null>
+  }
+  /** Consume or cancel the pending confirmation. */
+  settleSessionDelete: () => void
+  /**
+   * Delete a Session for good, stopping its running work when the request
+   * said so; resolves once the Host removed the records and raises the
+   * deleted notice.
+   */
+  deleteSession: (sessionId: SessionId, running: boolean) => Promise<void>
+}
+
 /** Fork action share. */
 export interface ForkSessionInjected {
   /** Fork a Session at its last completed turn; the child arrives through the Host list. */
@@ -437,6 +487,13 @@ export type SessionArchiveConfirmProps =
   & PropsLocale<'workspace'>
   & Omit<SessionArchiveConfirmInjected, 'hooks'>
   & PropsHooks<SessionArchiveConfirmInjected['hooks']>
+
+/** Props of the destructive delete-confirmation dialog entry in `shell.overlay`. */
+export type SessionDeleteConfirmProps =
+  PropsRuntime<'shell.overlay'>
+  & PropsLocale<'workspace'>
+  & Omit<SessionDeleteConfirmInjected, 'hooks'>
+  & PropsHooks<SessionDeleteConfirmInjected['hooks']>
 
 /**
  * Props of the row toast entry in `shell.overlay`. The declared viewing store

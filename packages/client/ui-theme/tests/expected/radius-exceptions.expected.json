@@ -43,7 +43,7 @@
   "ui-settings-account/src/client/AccountNotice.module.css": [
     ".card: border-radius: 16px"
   ],
-  "ui-settings-account/src/client/DesktopOnboarding.module.css": [
+  "ui-settings-account/src/client/onboarding/DesktopOnboarding.module.css": [
     ".card: border-radius: 32px",
     ".confirmationClose: border-radius: 28px",
     ".dialogButton: border-radius: 12px",

@@ -21,11 +21,15 @@ import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type {
   MenuOpenState, RowToast, RowToastState, SessionArchiveConfirmInjected, SessionArchiveConfirmRequest,
+  SessionDeleteConfirmInjected, SessionDeleteConfirmRequest,
   SessionRenameDialogInjected, SessionRenameTarget,
 } from '../src/client/contract/slots.ts'
 import {
   ArchiveSessionMenuItem, ArchiveSessionRowButton, SessionArchiveConfirmDialog,
 } from '../src/client/session-actions/ArchiveSession.tsx'
+import {
+  DeleteSessionMenuItem, DeleteSessionRowButton, SessionDeleteConfirmDialog,
+} from '../src/client/session-actions/DeleteSession.tsx'
 import { ForkSessionMenuItem } from '../src/client/session-actions/ForkSession.tsx'
 import { PinSessionMenuItem, PinSessionRowButton } from '../src/client/session-actions/PinSession.tsx'
 import { RenameSessionMenuItem, SessionRenameDialog } from '../src/client/session-actions/RenameSession.tsx'
@@ -206,6 +210,106 @@ describe('archive action', () => {
     fireEvent.click(screen.getByRole('button', { name: '取消归档' }))
     expect(archive.unarchiveSession).toHaveBeenCalledWith(sid('one'))
     expect(archive.archiveSession).toHaveBeenCalledOnce()
+  })
+})
+
+describe('delete action', () => {
+  it('menu row closes the menu, then asks for the confirmation', () => {
+    const { state, setMenuOpen } = openMenu()
+    const requestSessionDelete = vi.fn()
+    render(<DeleteSessionMenuItem {...menuRow(state)} requestSessionDelete={requestSessionDelete} />)
+    fireEvent.click(screen.getByRole('menuitem', { name: '删除会话' }))
+    expect(requestSessionDelete).toHaveBeenCalledWith(sid('one'))
+    expect(setMenuOpen).toHaveBeenCalledWith(false)
+    expect(callOrder(setMenuOpen)).toBeLessThan(callOrder(requestSessionDelete))
+  })
+
+  it('row button asks for the confirmation without deleting on its own', () => {
+    const requestSessionDelete = vi.fn()
+    render(<DeleteSessionRowButton {...actionRow} requestSessionDelete={requestSessionDelete} />)
+    fireEvent.click(screen.getByRole('button', { name: '删除会话' }))
+    expect(requestSessionDelete).toHaveBeenCalledWith(sid('one'))
+  })
+
+  describe('SessionDeleteConfirmDialog', () => {
+    /** The dialog over a test-owned request source; settling clears the request the way apply does. */
+    function deleteDialog(deleteSession: SessionDeleteConfirmInjected['deleteSession']) {
+      const request = createSnapshotStore<SessionDeleteConfirmRequest | null>(null)
+      const settleSessionDelete = vi.fn(() => { request.set(null) })
+      render(
+        <SessionDeleteConfirmDialog
+          {...overlay}
+          useDeleteRequest={bindSnapshotSelector(request)}
+          settleSessionDelete={settleSessionDelete}
+          deleteSession={deleteSession}
+        />,
+      )
+      const ask = (running = false): void => {
+        act(() => {
+          request.set({ sessionId: sid('one'), displayTitle: 'Session title', running })
+        })
+      }
+      return { settleSessionDelete, ask }
+    }
+
+    it('renders nothing until a deletion is requested', () => {
+      deleteDialog(vi.fn(async () => {}))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(document.body.textContent).toBe('')
+    })
+
+    it('names the Session and its transcript, then deletes on confirmation', async () => {
+      const deleteSession = vi.fn(async () => {})
+      const { ask } = deleteDialog(deleteSession)
+      ask()
+
+      const dialog = screen.getByRole('dialog')
+      expect(dialog.textContent).toContain('“Session title”')
+      expect(dialog.textContent).toContain('永久删除')
+      // A quiet Session needs no stop note.
+      expect(dialog.textContent).not.toContain('正在进行的工作')
+      expect(deleteSession).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByRole('button', { name: '永久删除' }))
+      await waitFor(() => { expect(deleteSession).toHaveBeenCalledWith(sid('one'), false) })
+    })
+
+    it('confirms a running Session by stopping its work first', async () => {
+      const deleteSession = vi.fn(async () => {})
+      const { ask } = deleteDialog(deleteSession)
+      ask(true)
+
+      const dialog = screen.getByRole('dialog')
+      expect(dialog.textContent).toContain('正在进行的工作')
+      // The stop note is not the pending status: nothing is in flight yet.
+      expect(dialog.textContent).not.toContain('正在删除…')
+
+      fireEvent.click(screen.getByRole('button', { name: '永久删除' }))
+      await waitFor(() => { expect(deleteSession).toHaveBeenCalledWith(sid('one'), true) })
+    })
+
+    it('cancelling settles the request without deleting', () => {
+      const deleteSession = vi.fn(async () => {})
+      const { ask, settleSessionDelete } = deleteDialog(deleteSession)
+      ask()
+
+      fireEvent.click(screen.getByRole('button', { name: '取消' }))
+      expect(deleteSession).not.toHaveBeenCalled()
+      expect(settleSessionDelete).toHaveBeenCalled()
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('keeps the dialog open and reports the Host refusal', async () => {
+      const deleteSession = vi.fn(async () => { throw new Error('workspace session delete failed: workspace/session-active: busy') })
+      const { ask, settleSessionDelete } = deleteDialog(deleteSession)
+      ask()
+
+      fireEvent.click(screen.getByRole('button', { name: '永久删除' }))
+      await waitFor(() => {
+        expect(screen.getByRole('alert').textContent).toContain('workspace/session-active')
+      })
+      expect(settleSessionDelete).not.toHaveBeenCalled()
+    })
   })
 })
 

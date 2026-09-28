@@ -38,6 +38,8 @@ interface HarnessOptions {
   liveSessions?: SessionHeader[]
   sessionStore?: boolean
   backend?: StorageBackend
+  /** Provide a `sessionProjectionCache` whose `forget` is observable. */
+  projectionCache?: boolean
 }
 
 /** Boot the real storage/domain/registry composition over controllable header-only peers. */
@@ -55,7 +57,14 @@ async function harness(options: HarnessOptions = {}) {
     listed.map(header => ({ header, revision: SessionPersistenceRevision(`rev-${header.id}`) })))
   const open = vi.fn(() => { throw new Error('event bodies must not be opened') })
   const stat = vi.fn(() => { throw new Error('per-session stat must not be needed') })
-  ctx.provide('sessionPersistence', { list, open, stat } as never)
+  const remove = vi.fn(async () => true)
+  ctx.provide('sessionPersistence', { list, open, stat, delete: remove } as never)
+  // The real cache is optional in the composition; a Host that composes it
+  // must have its row dropped with the session's other durable records.
+  const forget = vi.fn(async () => {})
+  if (options.projectionCache === true) {
+    ctx.provide('sessionProjectionCache', { forget } as never)
+  }
 
   if (options.sessionStore === true) {
     await ctx.plugin(SessionStore)
@@ -82,6 +91,8 @@ async function harness(options: HarnessOptions = {}) {
     list,
     open,
     stat,
+    remove,
+    forget,
     setSessions: (headers: SessionHeader[]) => { listed = headers },
   }
 }
@@ -1233,6 +1244,121 @@ describe('registry-global session unpin', () => {
     await expect(result.registry.unpinSession(SessionId('vanished'))).resolves.toBeUndefined()
     expect(result.registry.pinnedSessionIds).toEqual([])
     expect(result.list.mock.calls.length).toBe(listingsBefore)
+  })
+})
+
+describe('registry-global session deletion', () => {
+  it('cleans every accounting list and asks persistence to remove the records', async () => {
+    const dir = await makeDir('delete-accounting')
+    const result = await harness({ sessions: [header('doomed', dir, 100), header('kept', dir, 200)] })
+    const workspaceId = result.registry.list()[0]!.id
+    expect(result.registry.list()[0]!.sessionIds).toEqual(['kept', 'doomed'])
+    // Both registry-global sets must have something to clean.
+    await result.registry.pinSession(SessionId('kept'))
+    await result.registry.archiveSession(SessionId('doomed'))
+
+    await result.registry.deleteSession(SessionId('doomed'))
+
+    expect(result.remove).toHaveBeenCalledWith('doomed')
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(result.registry.pinnedSessionIds).toEqual(['kept'])
+    expect(result.registry.list()[0]!.sessionIds).toEqual(['kept'])
+    expect(storedRecord(result.pool, workspaceId).sessionIds).toEqual(['kept'])
+    expect(storedState(result.pool)).toMatchObject({ archivedSessionIds: [], pinnedSessionIds: ['kept'] })
+
+    // The last member leaves the account (and the pin set) empty.
+    await result.registry.deleteSession(SessionId('kept'))
+    expect(result.remove).toHaveBeenNthCalledWith(2, 'kept')
+    expect(result.registry.pinnedSessionIds).toEqual([])
+    expect(result.registry.list()[0]!.sessionIds).toEqual([])
+    expect(storedRecord(result.pool, workspaceId).sessionIds).toEqual([])
+  })
+
+  it('deletes a live-only session through the live store', async () => {
+    const result = await harness({ liveSessions: [header('live-only', undefined, 50)] })
+    const listings = result.list.mock.calls.length
+
+    await result.registry.deleteSession(SessionId('live-only'))
+
+    expect(result.remove).toHaveBeenCalledWith('live-only')
+    // The live store answered the existence check, so no persistence listing ran.
+    expect(result.list.mock.calls.length).toBe(listings)
+  })
+
+  it('refuses a session the activity waterfall reports active and stops it when asked', async () => {
+    const dir = await makeDir('delete-active')
+    const result = await harness({ sessions: [header('busy', dir, 100)] })
+    await result.registry.archiveSession(SessionId('busy'))
+    const asked: SessionId[] = []
+    result.ctx.on('workspace/session-activity', async ({ sessionId }, next) => {
+      asked.push(sessionId)
+      return [{ kind: 'probe' }, ...(await next())]
+    })
+
+    await expect(result.registry.deleteSession(SessionId('busy'))).rejects.toMatchObject({
+      name: 'WorkspaceActiveSessionError',
+      sessionId: 'busy',
+      message: expect.stringContaining("cannot delete session 'busy'") as string,
+    })
+    expect(result.remove).not.toHaveBeenCalled()
+    expect(result.registry.list()[0]!.sessionIds).toEqual(['busy'])
+    expect(result.registry.archivedSessionIds).toEqual(['busy'])
+    expect(asked).toEqual(['busy'])
+
+    const stops: string[] = []
+    result.ctx.on('workspace/session-stop', ({ sessionId }) => { stops.push(String(sessionId)) })
+    await result.registry.deleteSession(SessionId('busy'), { stopActivity: true })
+
+    // The caller already chose to stop what runs, so the question is not asked
+    // again, and the stop reached the providers.
+    expect(asked).toEqual(['busy'])
+    expect(stops).toEqual(['busy'])
+    expect(result.remove).toHaveBeenCalledWith('busy')
+    expect(result.registry.list()[0]!.sessionIds).toEqual([])
+    expect(result.registry.archivedSessionIds).toEqual([])
+  })
+
+  it('drops the deleted session\'s cached projection row last and contains a failed drop', async () => {
+    const dir = await makeDir('delete-projection')
+    const order: string[] = []
+    const result = await harness({ sessions: [header('doomed', dir, 100)], projectionCache: true })
+    result.remove.mockImplementation(async () => { order.push('log'); return true })
+    result.forget.mockImplementation(async () => { order.push('cache') })
+
+    await result.registry.deleteSession(SessionId('doomed'))
+
+    // The cached row goes AFTER the stored log: with the log gone, nothing the
+    // still-live Session could do writes the row back.
+    expect(order).toEqual(['log', 'cache'])
+    expect(result.forget).toHaveBeenCalledWith('doomed')
+
+    // A refusal still asks persistence for nothing and drops no row.
+    await expect(result.registry.deleteSession(SessionId('ghost')))
+      .rejects.toThrow(/cannot delete session 'ghost'/)
+    expect(result.forget).toHaveBeenCalledTimes(1)
+
+    // A failed drop leaves a stale derived document behind, never an
+    // undeleted session: the deletion resolves and reports the residue.
+    const warn = vi.spyOn(result.ctx.logger, 'warn').mockImplementation(() => {})
+    result.forget.mockRejectedValueOnce(new Error('cache medium down'))
+    await expect(result.registry.deleteSession(SessionId('doomed'))).resolves.toBeUndefined()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(
+      "cached projection row for deleted session 'doomed' failed",
+    ))
+    expect(result.remove).toHaveBeenCalledTimes(2)
+  })
+
+  it('refuses an unknown session and propagates a persistence removal failure', async () => {
+    const dir = await makeDir('delete-unknown')
+    const result = await harness({ sessions: [header('known', dir, 100)] })
+
+    await expect(result.registry.deleteSession(SessionId('ghost')))
+      .rejects.toThrow(/cannot delete session 'ghost'/)
+    expect(result.remove).not.toHaveBeenCalled()
+    expect(result.registry.list()[0]!.sessionIds).toEqual(['known'])
+
+    result.remove.mockRejectedValueOnce(new Error('removal backend down'))
+    await expect(result.registry.deleteSession(SessionId('known'))).rejects.toThrow(/removal backend down/)
   })
 })
 

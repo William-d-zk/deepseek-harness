@@ -474,6 +474,36 @@ export class JsonlBackendTracker {
   }
 
   /**
+   * Whether this process still holds anything for one session id: a write
+   * claim (an in-flight open or an adopting handle), a created-but-unmaterialized
+   * registration, or an open handle of either access. Callers read it BEFORE
+   * settling the id, because closing its handles erases the same bookkeeping.
+   * @param id - the session to test.
+   * @returns true while any of those entries names the id.
+   */
+  holds(id: SessionId): boolean {
+    if (this.pending.has(id) || this.writers.has(id)) return true
+    for (const handle of this.openHandles) {
+      if (handle.id === id) return true
+    }
+    return false
+  }
+
+  /**
+   * Forget everything this process still holds for one session id after its
+   * handles were closed: a write claim whose handle never finished
+   * construction, and a created-but-unmaterialized registration a read handle
+   * kept alive. Runs after the caller closed the id's open handles — close
+   * drains a write handle's routed buffer and unregisters the live event
+   * route, so this drops only what close cannot.
+   * @param id - the session to forget.
+   */
+  discard(id: SessionId): void {
+    this.pending.delete(id)
+    this.writers.delete(id)
+  }
+
+  /**
    * Track one open handle for teardown and, for a write handle, bind it as
    * the session's live event route.
    * @param handle - the just-constructed handle.

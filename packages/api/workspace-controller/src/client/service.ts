@@ -31,6 +31,20 @@ export class WorkspaceArchiveError extends Error {
   }
 }
 
+/**
+ * Session deletion failed on the Host. `rpcError.code` distinguishes the
+ * active-session refusal (`workspace/session-active`, whose details name what
+ * still runs) from a missing session or a carrier fault.
+ */
+export class WorkspaceSessionDeleteError extends Error {
+  override readonly name = 'WorkspaceSessionDeleteError'
+
+  /** @param rpcError - Host business or folded carrier failure. */
+  constructor(readonly rpcError: RemoteFailure) {
+    super(`workspace session delete failed: ${rpcError.code}: ${rpcError.message}`)
+  }
+}
+
 /** Bare observable source for the Workspace Controller snapshot. */
 export interface WorkspaceSource {
   /** Read the identity-stable current snapshot. */
@@ -90,6 +104,15 @@ export interface IWorkspaces {
    * @param sessionId - Session to unarchive.
    */
   unarchiveSession(sessionId: SessionId): Promise<void>
+  /**
+   * Delete a Session permanently: its per-Workspace accounting, its archive
+   * entry, its pin, and its durable records on the Host.
+   * @param sessionId - Session to delete.
+   * @param options - `stopActivity` asks the Host to stop the Session's running work instead of refusing.
+   * @throws {WorkspaceSessionDeleteError} when the Host refuses; without `stopActivity` a Session
+   *   with running work fails as `workspace/session-active`, its details naming what runs.
+   */
+  deleteSession(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>
   /**
    * Pin a Session ahead of unpinned Sessions on Workspace grouping surfaces.
    * @param sessionId - Session to pin.
@@ -163,6 +186,11 @@ export class WorkspaceController extends Service implements IWorkspaces {
   async unarchiveSession(sessionId: SessionId): Promise<void> {
     const result = await this.model.unarchiveSession(sessionId)
     if (!result.ok) throw commandError('session unarchive', result.error)
+  }
+
+  async deleteSession(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
+    const result = await this.model.deleteSession(sessionId, options)
+    if (!result.ok) throw new WorkspaceSessionDeleteError(result.error)
   }
 
   async pinSession(sessionId: SessionId): Promise<void> {

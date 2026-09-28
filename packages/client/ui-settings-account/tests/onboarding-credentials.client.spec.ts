@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { readOnboardingApiKeyPresence } from '../src/client/onboarding-credentials.ts'
+import { readOnboardingApiKeyPresence } from '../src/client/onboarding/onboarding-credentials.ts'
 
 afterEach(() => { vi.unstubAllGlobals() })
 

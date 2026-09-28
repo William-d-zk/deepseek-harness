@@ -175,6 +175,11 @@ class TestPersistence extends SessionPersistence {
     TestPersistence.afterList?.()
     return Promise.resolve(snapshots)
   }
+
+  /** Remove one entry here; nothing buffers, so no handle needs settling. */
+  delete(id: SessionIdType): Promise<boolean> {
+    return Promise.resolve(TestPersistence.entries.delete(id))
+  }
 }
 
 async function liveContext(config: ConstructorParameters<typeof TestSessionQueryEngine>[1] = {}): Promise<Context> {

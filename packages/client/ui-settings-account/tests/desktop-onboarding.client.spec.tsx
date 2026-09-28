@@ -2,8 +2,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { DesktopOnboarding } from '../src/client/DesktopOnboarding.tsx'
-import type { DesktopOnboardingProps, DesktopOnboardingState } from '../src/client/onboarding-contract.ts'
+import { DesktopOnboarding } from '../src/client/onboarding/DesktopOnboarding.tsx'
+import type { DesktopOnboardingProps, DesktopOnboardingState } from '../src/client/onboarding/onboarding-contract.ts'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })

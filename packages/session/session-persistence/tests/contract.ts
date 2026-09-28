@@ -184,6 +184,55 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
       }
     })
 
+    it('delete removes a stored session, settles its write handle, and is idempotent', async () => {
+      const { persistence, dispose } = await make()
+      try {
+        const m = meta('delete-stored', '/work')
+        const handle = await persistence.create(m)
+        await handle.append(oneTurnLog())
+        await handle.flush()
+        expect((await persistence.stat(m.id))?.header.id).toBe(m.id)
+
+        // The removal settles the id's own handles first, so the still-open
+        // write handle above must not survive it.
+        await expect(persistence.delete(m.id)).resolves.toBe(true)
+        await expect(persistence.stat(m.id)).resolves.toBeUndefined()
+        await expect(persistence.list()).resolves.not.toContainEqual(
+          expect.objectContaining<{ header: unknown }>({ header: expect.objectContaining({ id: m.id }) }),
+        )
+        await expect(persistence.open(m.id, 'read')).rejects.toBeInstanceOf(SessionPersistenceNotFoundError)
+        // The deleted handle is closed, and closing it again is a no-op.
+        await handle.close()
+
+        // A repeat removes nothing, and the id is free for a fresh session.
+        await expect(persistence.delete(m.id)).resolves.toBe(false)
+        const recreated = await persistence.create(meta('delete-stored', '/work'))
+        await recreated.close()
+      } finally {
+        await dispose()
+      }
+    })
+
+    it('delete erases a created-but-unmaterialized session and frees its id', async () => {
+      const { persistence, dispose } = await make()
+      try {
+        const m = meta('delete-pending')
+        await persistence.create(m)
+
+        await expect(persistence.delete(m.id)).resolves.toBe(true)
+        await expect(persistence.stat(m.id)).resolves.toBeUndefined()
+        await expect(persistence.list()).resolves.toEqual([])
+        await expect(persistence.delete(m.id)).resolves.toBe(false)
+
+        const recreated = await persistence.create(meta('delete-pending'))
+        await expect(recreated.read()).resolves.toMatchObject({ events: [] })
+        await recreated.close()
+      } finally {
+        await dispose()
+      }
+    })
+
+
     it('duplicate create rejects against a live pending session and allows the id after an erasing close', async () => {
       const { persistence, dispose } = await make()
       try {

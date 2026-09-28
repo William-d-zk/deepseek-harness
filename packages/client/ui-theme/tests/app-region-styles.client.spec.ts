@@ -67,9 +67,9 @@ interface ChromeRow {
 
 const CHROME_ROWS: readonly ChromeRow[] = [
   {
-    file: 'client/ui-settings-account/src/client/OnboardingSurface.module.css',
+    file: 'client/ui-settings-account/src/client/onboarding/OnboardingSurface.module.css',
     selector: '.dragBand',
-    markup: 'client/ui-settings-account/src/client/OnboardingSurface.tsx',
+    markup: 'client/ui-settings-account/src/client/onboarding/OnboardingSurface.tsx',
     inset: ['inset', '8px'],
   },
   {

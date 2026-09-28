@@ -521,6 +521,9 @@ importers:
       typescript:
         specifier: '>=5 <7'
         version: 6.0.3
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@5.0.1)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.3.1(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   ../dsh-chess/packages/tool-rchess:
     dependencies:
@@ -14329,6 +14332,9 @@ importers:
       '@deepseek-ai/dsh-session-persistence':
         specifier: workspace:*
         version: link:../../session/session-persistence
+      '@deepseek-ai/dsh-session-projection-cache':
+        specifier: workspace:*
+        version: link:../../session/session-projection-cache
       '@deepseek-ai/dsh-storage':
         specifier: workspace:*
         version: link:../../storage/storage

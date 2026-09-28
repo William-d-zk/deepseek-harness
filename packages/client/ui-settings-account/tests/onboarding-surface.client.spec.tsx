@@ -3,7 +3,7 @@ import { cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PlatformOverlay } from '../src/client/PlatformOverlay.tsx'
 import { acquireOverlayInert } from '../src/client/overlay-inert.ts'
-import { OnboardingSurface } from '../src/client/OnboardingSurface.tsx'
+import { OnboardingSurface } from '../src/client/onboarding/OnboardingSurface.tsx'
 
 let appRoot: HTMLDivElement
 

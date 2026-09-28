@@ -101,7 +101,10 @@ describe('CodeBlock', () => {
     view.rerender(<CodeBlock code="updated text" contentRef={contentRef} />)
     expect(view.container.querySelector('[data-code-block-content]')).toBe(content)
     view.unmount()
-    expect(contentRef).toHaveBeenLastCalledWith(null)
+    // React's development build invokes the detach through runWithFiberInDEV,
+    // which pads the callback's unused parameters with undefined; the reported
+    // node is the contract, not the call's arity.
+    expect(contentRef.mock.lastCall?.[0]).toBeNull()
   })
 
   it('renders the highlighted tree for TypeScript', () => {
@@ -187,6 +190,8 @@ describe('CodeBlock', () => {
     fireEvent.click(screen.getByRole('button', { name: '复制成功' }))
     expect(writeText).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(1000)
+    // React state updates queued by the timer callback commit inside act.
+    await act(async () => {})
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 

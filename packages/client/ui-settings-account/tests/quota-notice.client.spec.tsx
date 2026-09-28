@@ -187,12 +187,15 @@ it.each(['signed-out', 'unloaded'] as const)('uses a timed Toast without the sha
   expect(screen.queryByRole('alert')).toBeNull()
 })
 
-it.each([en, zh])('takes the balance Modal down when the account signs out', (copy) => {
+it.each([en, zh])('takes the balance Modal down when the account signs out', async (copy) => {
   const spies = pageSpies()
   const { dismiss, setStatus } = mount({ pages: spies.pages, copy })
   expect(screen.getByRole('dialog', { name: copy.quotaTitle })).toBeTruthy()
   act(() => { setStatus('signed-out') })
   expect(dismiss).toHaveBeenCalledOnce()
+  // The dismissal re-renders the chain from the sign-out effect, so the DOM
+  // that commit queued lands only inside act.
+  await act(async () => {})
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(screen.queryByRole('alert')).toBeNull()
   expect(spies.open).not.toHaveBeenCalled()

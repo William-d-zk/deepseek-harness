@@ -133,7 +133,10 @@ export function apply(ctx: ClientContext): void {
       'settings.models.footer': { kind: 'list', scope: 'root' },
     },
   }, ModelsSection))
-  if (!('dshDesktop' in globalThis)) ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
+  // Unguarded in every renderer: the Desktop shell only takes over AUTOMATIC
+  // onboarding (`credentialOnboarding` above), while this entry still declares
+  // the `settings.models.sign-in` seat that account settings registers into.
+  ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'deepseek-official',
     children: { 'settings.models.sign-in': { kind: 'single', scope: 'root' } },

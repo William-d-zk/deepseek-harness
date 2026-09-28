@@ -49,7 +49,11 @@ async function bench(declare = true) {
   const scopeOf = vi.fn((candidate: Context) => (
     candidate as Context & { [SESSION_SCOPE]?: SessionId }
   )[SESSION_SCOPE])
-  ctx.provide('sessions', { scopeOf } as never)
+  const cancel = vi.fn(async () => {})
+  const scoped = ctx.extend()
+  scoped.provide('conversation', { cancel } as never)
+  const scope = vi.fn((id: SessionId) => id === SESSION_ID ? scoped : undefined)
+  ctx.provide('sessions', { scopeOf, scope } as never)
   const pending = new Map<PendingQuestion, () => Promise<void>>()
   const registerPendingInteraction = vi.fn((_precedence: (value: PendingQuestion) => number) => (
     value: PendingQuestion,
@@ -83,6 +87,7 @@ async function bench(declare = true) {
     locale,
     agent,
     scopeOf,
+    cancel,
     pending: { getSnapshot: () => [...pending.keys()] },
     registerPendingInteraction,
     on,
@@ -121,7 +126,6 @@ describe('apply', () => {
 
     const entry = b.slots.entries('conversation.composer')[0]!
     expect(entry.component).toBe(QuestionComposer)
-    expect(entry.inject).toBeUndefined()
     expect(entry.locale).toBe('question')
     const store = entry.store as ReturnType<typeof createQuestionDraftStore>
     expect(store.create(SESSION_ID).getSnapshot()).toEqual({
@@ -140,6 +144,17 @@ describe('apply', () => {
     expect(next).not.toHaveBeenCalled()
     expect(b.pending.getSnapshot()).toEqual([])
     expect(b.slots.entries('conversation.composer')).toHaveLength(1)
+  })
+
+  it('stops the addressed Session through its scoped Conversation', async () => {
+    const b = await bench()
+    const entry = b.slots.entries('conversation.composer')[0]!
+    const inject = entry.inject as (sessionId: SessionId) => { stopRun(): Promise<void> | undefined }
+
+    await expect(inject(SESSION_ID).stopRun()).resolves.toBeUndefined()
+    expect(b.cancel).toHaveBeenCalledOnce()
+    expect(inject('gone' as SessionId).stopRun()).toBeUndefined()
+    expect(b.cancel).toHaveBeenCalledOnce()
   })
 
   it('preserves ASK_CANCELLED as a rejected waterfall result', async () => {

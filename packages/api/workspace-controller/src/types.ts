@@ -129,6 +129,24 @@ export interface WorkspaceUnarchiveSessionRequest {
   readonly sessionId: SessionId
 }
 
+/** Session requested for permanent deletion from Workspace grouping surfaces. */
+export interface WorkspaceDeleteSessionRequest {
+  readonly sessionId: SessionId
+  /**
+   * Stop the Session's running work — its turn, subagent descendants, owned
+   * background jobs, and active schedules — instead of refusing the deletion
+   * as `workspace/session-active`. The stops are requested after the
+   * accounting write and are not awaited; the response arrives once the
+   * Session's durable records are gone.
+   */
+  readonly stopActivity?: boolean
+}
+
+/** Receipt after one Session's durable records and accounting are removed. */
+export interface WorkspaceDeleteSessionValue {
+  readonly deleted: true
+}
+
 /** Complete archived Session set after a mutation. */
 export interface WorkspaceArchiveValue {
   readonly archivedSessionIds: readonly SessionId[]

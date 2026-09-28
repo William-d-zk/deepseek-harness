@@ -11,7 +11,8 @@ import { StopSequence } from './stop-sequence.ts'
  * @param shortcuts - window keyboard arbitration and validated sequence interval.
  * @param sessions - live Session identities and lifecycle sources.
  * @param openTurn - stable current-turn source for a live Session binding.
- * @param uiSession - current pending-interaction status.
+ * @param uiSession - Session status source; its changes rearm the sequence,
+ * and a pending interaction no longer withholds Stop.
  * @param cancel - scoped stop operation that preserves Queue and reports failures.
  * @returns disposer releasing the input subscription, pending watches and expiry timer.
  */
@@ -43,11 +44,13 @@ export function installStopShortcut(
     const binding = sessions.binding(sessionId)
     if (binding === undefined) { reset(); return }
     const turnSource = openTurn(binding)
+    // A pending interaction (question card, approval) takes over the composer
+    // but never the Stop gesture: the running turn stays stoppable without
+    // dismissing it first.
     const currentTurn = (): number | undefined => {
       const session = binding.session.getSnapshot()
       if (!session.running || session.removed
-        || (session.subagent !== null && session.subagent.address.mode !== 'continuable')
-        || uiSession.sessionStatus.getSnapshot().get(sessionId)?.pendingInteraction !== undefined) return undefined
+        || (session.subagent !== null && session.subagent.address.mode !== 'continuable')) return undefined
       return turnSource.getSnapshot()
     }
     const turn = currentTurn()

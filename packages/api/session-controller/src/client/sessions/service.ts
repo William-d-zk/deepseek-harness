@@ -393,6 +393,15 @@ export class ClientSessions implements ISessions {
   }
 
   /**
+   * Apply one locally concluded Session removal (the caller deleted it on the
+   * Host), through the same local removal path a forwarded event uses.
+   * @param sessionId - deleted Session identity.
+   */
+  removeSession(sessionId: SessionId): void {
+    this.manager.handleSessionRemoved(sessionId)
+  }
+
+  /**
    * Apply one remotely forwarded running-state change.
    * @param args - Session identity and current Agent running state.
    */

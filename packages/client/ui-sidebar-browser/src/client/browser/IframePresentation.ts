@@ -1,6 +1,6 @@
 /** Iframe DOM and revision-tagged load observations. */
-import type { BrowserTarget } from '../browser/url.ts'
-import type { BrowserPresentation } from './BrowserPresentation.ts'
+import type { BrowserTarget } from '../contract/url.ts'
+import type { BrowserPresentation } from '../contract/BrowserPresentation.ts'
 import css from './Browser.module.css'
 
 /** Fixed iframe policy; top navigation and downloads are not granted directly. */

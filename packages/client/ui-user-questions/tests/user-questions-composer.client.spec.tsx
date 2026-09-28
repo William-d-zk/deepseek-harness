@@ -113,6 +113,8 @@ const kitBase: Omit<QuestionComposerProps, 'matched' | 'useStore' | 'actions'> =
   session: undefined,
   sessionId: SID,
   pendingInteraction: undefined,
+  // The registration's business face; individual cases pass their own spy.
+  stopRun: () => Promise.resolve(),
   useSession: selector => selector(sessionState),
   useSessions: selector => selector(sessionList),
   usePanelInfo, useResource,
@@ -353,6 +355,52 @@ describe('QuestionComposer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '放弃整组问题' }))
     expect(await screen.findByText('第二次取消失败')).toBeTruthy()
+  })
+
+  it('stops the running turn from the card header, collapsed or expanded', () => {
+    const { carrier } = wait()
+    const stopRun = vi.fn(() => Promise.resolve())
+    render(<QuestionComposer matched={carrier} {...kit} stopRun={stopRun} />)
+
+    fireEvent.click(screen.getByLabelText(zh['nav.stopRun']))
+    expect(stopRun).toHaveBeenCalledOnce()
+
+    // The header strip keeps the control after the body collapses.
+    fireEvent.click(screen.getByLabelText(zh['nav.minimize']))
+    expect(screen.queryByRole('radiogroup')).toBeNull()
+    fireEvent.click(screen.getByLabelText(zh['nav.stopRun']))
+    expect(stopRun).toHaveBeenCalledTimes(2)
+  })
+
+  it('surfaces stop failures through the card feedback', async () => {
+    const { carrier } = wait()
+    const stopRun = vi.fn(() => Promise.reject(new Error('停止失败')))
+    render(<QuestionComposer matched={carrier} {...kit} stopRun={stopRun} />)
+
+    fireEvent.click(screen.getByLabelText(zh['nav.stopRun']))
+    expect(await screen.findByText('停止失败')).toBeTruthy()
+  })
+
+  it('keeps Stop inert once the Session scope is gone', () => {
+    const { carrier } = wait()
+    const stopRun = vi.fn(() => undefined)
+    render(<QuestionComposer matched={carrier} {...kit} stopRun={stopRun} />)
+
+    fireEvent.click(screen.getByLabelText(zh['nav.stopRun']))
+    expect(stopRun).toHaveBeenCalledOnce()
+    expect(screen.getByRole('status').textContent).toBe('')
+  })
+
+  it('disables Stop while the card settles a dismissal', () => {
+    const { carrier, cancel } = wait()
+    const gate = Promise.withResolvers<undefined>()
+    cancel.mockReturnValueOnce(gate.promise)
+    const stopRun = vi.fn(() => Promise.resolve())
+    render(<QuestionComposer matched={carrier} {...kit} stopRun={stopRun} />)
+
+    fireEvent.click(screen.getByRole('button', { name: zh['nav.cancel'] }))
+    expect(screen.getByLabelText<HTMLButtonElement>(zh['nav.stopRun']).disabled).toBe(true)
+    gate.resolve(undefined)
   })
 
   it('surfaces answer rejection and resets local drafts for a different request', async () => {

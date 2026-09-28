@@ -512,6 +512,11 @@ describe('SessionObservationReader cold path', () => {
       list(): Promise<readonly SessionPersistenceSnapshot[]> {
         return Promise.resolve([])
       }
+
+      /** Every id is absent here; the swap test never deletes. */
+      delete(): Promise<boolean> {
+        return Promise.resolve(false)
+      }
     }
 
     const ctx = await readerContext()

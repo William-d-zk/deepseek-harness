@@ -44,6 +44,17 @@ export function RowActionToast({ useToast, useStore, dismissToast, undoArchive, 
       />
     )
   }
+  if (toast.kind === 'deleted') {
+    return (
+      <Toast
+        key={`toast-${String(toast.seq)}`}
+        text={t('toast.deleted')}
+        tone="success"
+        holdMs={LONG_TOAST_HOLD_MS}
+        onDone={dismissToast}
+      />
+    )
+  }
   if (toast.kind === 'createFailed') {
     return (
       <Toast
@@ -67,7 +78,7 @@ export function RowActionToast({ useToast, useStore, dismissToast, undoArchive, 
 
 /** The copy of one plain warning, keyed by the notice kind the union closes over. */
 function plainNoticeText(
-  toast: Exclude<RowToastState, { kind: 'archived' | 'stoppedAndArchived' | 'createFailed' }>,
+  toast: Exclude<RowToastState, { kind: 'archived' | 'stoppedAndArchived' | 'deleted' | 'createFailed' }>,
   t: RowToastProps['t'],
 ): string {
   switch (toast.kind) {

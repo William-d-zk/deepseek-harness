@@ -27,6 +27,7 @@ import {
   type SessionAccess, type SessionHandle,
   type SessionHandleReadResult,
   type SessionLocation, type SessionPersistenceCreateOptions,
+  type SessionPersistenceDeleteOptions,
   type SessionPersistenceListOptions, type SessionPersistenceOpenOptions,
   type SessionPersistenceSnapshot, type SessionPersistenceStatOptions,
   type SessionPersistenceRevision as PersistenceRevision,
@@ -506,6 +507,53 @@ class JsonlSessionPersistence extends SessionPersistence {
     }
     signal?.throwIfAborted()
     return snapshots
+  }
+
+  /**
+   * Durably delete one stored session: settle this process's state for the id
+   * first, then remove the session's own directory and every generation file
+   * inside it. A created-but-unmaterialized session is erased without ever
+   * reaching the medium; a materialized one disappears from `stat`/`list`/`open`.
+   *
+   * Closing the id's handles before the removal is what makes the removal
+   * stick: a write handle's close drains its routed buffer durably and
+   * unregisters the live event route, so a later event for the deleted
+   * session is dropped instead of re-materializing the artifact.
+   * @param id - the stored session to delete.
+   * @param options - optional cancellation.
+   * @returns `true` when this process held the session (an open handle, a
+   *   created-but-unmaterialized registration, or a durable artifact),
+   *   `false` when it held none.
+   */
+  async delete(id: SessionId, options?: SessionPersistenceDeleteOptions): Promise<boolean> {
+    options?.signal?.throwIfAborted()
+    await this.ensureRootEncoding()
+    options?.signal?.throwIfAborted()
+    // Read the in-process bookkeeping BEFORE settling it: closing a creator's
+    // write handle erases its own registration, so the answer must be taken first.
+    const heldInProcess = this.tracker.holds(id)
+    for (const handle of [...this.tracker.openHandles]) {
+      if (handle.id !== id) continue
+      // Idempotent and deliberately not cancellable: the session must not
+      // stay addressable through a handle the caller no longer owns.
+      await handle.close()
+    }
+    options?.signal?.throwIfAborted()
+    this.tracker.discard(id)
+    // A shared migration preparation would publish a successor generation for
+    // a session that no longer exists; drop it with the record it belongs to.
+    const preparation = this.migrationPreparations.get(id)
+    if (preparation !== undefined) {
+      this.migrationPreparations.delete(id)
+      preparation.controller.abort()
+    }
+    this.coldLogMemo.delete(id)
+    const selected = await this.findLog(id, options?.signal)
+    if (selected === undefined) return heldInProcess
+    // The session directory holds the log generations and the write lock;
+    // removing it is the whole durable footprint of the session.
+    await rm(dirname(selected.currentPath), { recursive: true, force: true })
+    return true
   }
 
   // --- handle-facing storage internals (package-private via the handle class below) ---

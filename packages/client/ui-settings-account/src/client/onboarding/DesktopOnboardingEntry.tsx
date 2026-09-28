@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { AccountSnapshot } from './AccountSection.tsx'
+import type { AccountSnapshot } from '../AccountSection.tsx'
 import type { DesktopOnboardingProps, DesktopOnboardingState } from './onboarding-contract.ts'
 import { OnboardingSurface } from './OnboardingSurface.tsx'
 import { DesktopOnboarding } from './DesktopOnboarding.tsx'

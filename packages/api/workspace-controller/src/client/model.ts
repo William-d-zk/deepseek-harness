@@ -4,12 +4,15 @@ import { notifySubscribers } from '@deepseek-ai/dsh-client-store'
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/remote'
 import { isRemoteFailure } from '@deepseek-ai/dsh-api-gateway/client'
 import type { RemoteFailure, RemoteResult, TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   WorkspaceArchiveSessionRequest,
   WorkspaceArchiveValue,
   WorkspaceBaseline,
   WorkspaceCreateRequest,
   WorkspaceCreateValue,
+  WorkspaceDeleteSessionRequest,
+  WorkspaceDeleteSessionValue,
   WorkspaceDeleteValue,
   WorkspaceInsertSessionBeforeRequest,
   WorkspaceOrderValue,
@@ -224,6 +227,33 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
   }
 
   /**
+   * Delete one Session's per-Workspace accounting, archive entry, and pin.
+   * A successful reply drops the id from every projected row and from both
+   * registry-global sets at once, so no surface keeps showing a row whose
+   * Session is gone; the Host's durable records are removed by the same call.
+   * @param sessionId - Session to delete.
+   * @param options - Whether the Host stops the Session's running work instead of refusing.
+   * @returns generated Remote result.
+   */
+  async deleteSession(
+    sessionId: WorkspaceDeleteSessionRequest['sessionId'],
+    options: Pick<WorkspaceDeleteSessionRequest, 'stopActivity'> = {},
+  ): Promise<RemoteResult<WorkspaceDeleteSessionValue>> {
+    // An archive or pin request in flight when this delete starts must not
+    // install a reply that puts the deleted id back into either set.
+    this.archiveRequestSeq++
+    this.pinRequestSeq++
+    const result = await this.remote.deleteSession({
+      sessionId,
+      ...(options.stopActivity === true ? { stopActivity: true } : {}),
+    })
+    // Unconditional on success: the id is gone on the Host, so any set that
+    // still names it — a reply or a frame that raced this call — is stale.
+    if (result.ok) this.forgetSession(sessionId)
+    return result
+  }
+
+  /**
    * Pin one Session and install the returned complete pin set.
    * A reply superseded by a later pin request or a pushed set installs nothing.
    * @param sessionId - Session to pin.
@@ -354,6 +384,23 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
       phase: this.phase,
       error: this.error,
     }
+  }
+
+  /**
+   * Drop one deleted Session id from every local projection: each row's
+   * manual order, the archive set, and the pin set. The Host removed the id
+   * from all three in one durable write, so nothing local may keep it.
+   */
+  private forgetSession(sessionId: SessionId): void {
+    const items = this.items.map(item => item.sessionIds.includes(sessionId)
+      ? { ...item, sessionIds: item.sessionIds.filter(id => id !== sessionId) }
+      : item)
+    if (items.some((item, index) => item !== this.items[index])) {
+      this.items = items
+      this.invalidate()
+    }
+    this.installArchived(this.archivedSessionIds.filter(id => id !== sessionId))
+    this.installPinned(this.pinnedSessionIds.filter(id => id !== sessionId))
   }
 
   private installArchived(archivedSessionIds: WorkspaceArchiveValue['archivedSessionIds']): void {

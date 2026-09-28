@@ -216,7 +216,7 @@ async function compileFixture(): Promise<{ script: string; css: string }> {
     import cardCss from ${source('ui-primitives/src/HoverCard.module.css')}
     import pillCss from ${source('ui-primitives/src/Pill.module.css')}
     import trajectoryCss from ${source('ui-trajectory/src/client/TrajectoryTable.module.css')}
-    import onboardingCss from ${source('ui-settings-account/src/client/DesktopOnboarding.module.css')}
+    import onboardingCss from ${source('ui-settings-account/src/client/onboarding/DesktopOnboarding.module.css')}
     function Fixture() {
       const [checked, setChecked] = useState(false)
       const [open, setOpen] = useState(false)

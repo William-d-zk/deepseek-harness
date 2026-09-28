@@ -11,6 +11,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -672,6 +673,78 @@ describe('SessionProjectionCache listing read', () => {
     const { cache } = await harness({ root })
     expect(cache.cachedSnapshot(headerOf(SessionId('malformed'))))
       .toBeUndefined()
+  })
+})
+
+describe('SessionProjectionCache drop face', () => {
+  it('forgets one session durably, leaves its siblings alone, and repeats as a no-op', async () => {
+    const { ctx, root, cache } = await harness()
+    const doomed = SessionId('doomed')
+    const kept = SessionId('kept')
+    const createdDoomed = whenWritten(ctx, doomed)
+    const createdKept = whenWritten(ctx, kept)
+    const doomedSession = ctx.sessions.create(doomed)
+    const keptSession = ctx.sessions.create(kept)
+    await Promise.all([createdDoomed, createdKept])
+    const deleted: string[] = []
+    ctx.on('domain/changed', (change) => {
+      if (change.operation === 'deleted') deleted.push(change.key)
+    })
+
+    await cache.forget(doomed)
+
+    // Gone from both faces and from the medium: the document no longer exists.
+    expect(cache.cachedSnapshot(doomedSession.header)).toBeUndefined()
+    expect(await storedRecord(root, doomed)).toBeUndefined()
+    expect(existsSync(recordPath(root, doomed))).toBe(false)
+    // The sibling's row is untouched.
+    expect(cache.cachedSnapshot(keptSession.header)).toBeDefined()
+    expect(await storedRows(root, kept)).toBeDefined()
+    expect(deleted).toEqual(['doomed'])
+
+    // A repeat, and an id the cache never held, are no-ops at the medium.
+    await expect(cache.forget(doomed)).resolves.toBeUndefined()
+    await expect(cache.forget(SessionId('never-cached'))).resolves.toBeUndefined()
+    expect(deleted).toEqual(['doomed'])
+    expect(cache.cachedSnapshot(keptSession.header)).toBeDefined()
+  })
+
+  it('drops the write-behind bookkeeping, so no armed trigger writes the row back', async () => {
+    const { ctx, root, cache } = await harness({ config: { writeEveryEvents: 100, writeIntervalMs: 1000 } })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const id = SessionId('forgotten-live')
+    const created = whenWritten(ctx, id)
+    const session = ctx.sessions.create(id)
+    await created
+    mark(session, ['pending']) // arms the interval trigger; nothing written yet
+    const write = vi.spyOn(cache, 'write')
+
+    await cache.forget(id)
+    await vi.advanceTimersByTimeAsync(10_000)
+
+    // The disarmed trigger never fired, so the row the deletion dropped stays dropped.
+    expect(write).not.toHaveBeenCalled()
+    expect(await storedRecord(root, id)).toBeUndefined()
+    expect(cache.cachedSnapshot(session.header)).toBeUndefined()
+
+    // A clean session (dirty entry kept by markClean, no timer) is dropped too,
+    // and a sibling's armed write-behind survives the drop.
+    const cleaned = ctx.sessions.create(SessionId('forgotten-clean'))
+    await whenWritten(ctx, cleaned.id)
+    mark(cleaned, ['done']) // the entry exists with its trigger armed
+    const cleanedWritten = whenWritten(ctx, cleaned.id)
+    endTurn(cleaned) // the mandatory write clears the trigger but keeps the entry
+    await cleanedWritten
+    const bystander = ctx.sessions.create(SessionId('bystander'))
+    await whenWritten(ctx, bystander.id)
+    mark(bystander, ['kept-dirty'])
+    await cache.forget(cleaned.id)
+    expect(existsSync(recordPath(root, cleaned.id))).toBe(false)
+    const bystanderWritten = whenWritten(ctx, bystander.id)
+    await vi.advanceTimersByTimeAsync(1000)
+    await bystanderWritten
+    expect((await storedRows(root, bystander.id))?.['cache-test/marks']?.val)
+      .toEqual({ marks: ['kept-dirty'] })
   })
 })
 

@@ -1,5 +1,5 @@
 /** Body-portaled introduction with shared background interaction ownership. */
-import { acquireOverlayInert } from './overlay-inert.ts'
+import { acquireOverlayInert } from '../overlay-inert.ts'
 import { useLayoutEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'

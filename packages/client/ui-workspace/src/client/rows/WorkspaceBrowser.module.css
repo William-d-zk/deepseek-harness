@@ -588,6 +588,14 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* The destructive delete dialog's warning that a running Session stops first. */
+.deleteWarning {
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
 /* The stop-and-archive dialog's list of work that will be stopped. */
 .archiveActivity {
   margin: 0 0 8px;

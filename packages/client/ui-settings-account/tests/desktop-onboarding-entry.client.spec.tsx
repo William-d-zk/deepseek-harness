@@ -3,8 +3,8 @@ import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { AccountSnapshot } from '../src/client/AccountSection.tsx'
-import { DesktopOnboardingEntry } from '../src/client/DesktopOnboardingEntry.tsx'
-import type { DesktopOnboardingState } from '../src/client/onboarding-contract.ts'
+import { DesktopOnboardingEntry } from '../src/client/onboarding/DesktopOnboardingEntry.tsx'
+import type { DesktopOnboardingState } from '../src/client/onboarding/onboarding-contract.ts'
 import { zh, type AccountKey } from '../src/client/locales.ts'
 
 let appRoot: HTMLDivElement

@@ -1,8 +1,8 @@
 /** Native webview events controlled by each test; presentation and navigation stay real. */
 import { vi, type Mock } from 'vitest'
 import type { DesktopBrowserBridge, DesktopBrowserLeaseId, DesktopBrowserReservation } from '../src/types.ts'
-import type { BrowserTabState } from '../src/client/browser/BrowserPersistence.ts'
-import type { BrowserPage } from '../src/client/browser/BrowserPage.ts'
+import type { BrowserTabState } from '../src/client/contract/BrowserPersistence.ts'
+import type { BrowserPage } from '../src/client/contract/BrowserPage.ts'
 import type { WebviewElement } from '../src/client/electron/ElectronWebviewPresentation.ts'
 import { createElectronPage } from '../src/client/electron/pages.ts'
 import { ElectronWebviewPresentation } from '../src/client/electron/ElectronWebviewPresentation.ts'

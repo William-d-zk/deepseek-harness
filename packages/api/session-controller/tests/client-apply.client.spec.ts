@@ -72,6 +72,23 @@ describe('Session Controller Client apply', () => {
     await vi.waitFor(() => { expect(connected).toHaveBeenCalledTimes(2) })
   }, COLD_BOOT_TIMEOUT_MS)
 
+  it('drops a Session locally when the caller concluded its deletion', async ({ mock, start }) => {
+    const sessionId = sid('deleted')
+    mock.remote.session.list.mockResolvedValue(ok({ items: [
+      { sessionId, updatedAt: 1, running: false, blank: false, agentAvailable: true },
+    ] }))
+    const { sessions } = await bench(start)
+    await sessions.refresh()
+    await vi.waitFor(() => { expect(sessions.list.getSnapshot().byId[sessionId]).toBeDefined() })
+
+    // A permanent deletion is concluded by its caller: the Host emits no
+    // removal event for it, so the row leaves through the same local path.
+    sessions.removeSession(sessionId)
+
+    await vi.waitFor(() => { expect(sessions.list.getSnapshot().byId[sessionId]).toBeUndefined() })
+    expect(sessions.list.getSnapshot().ids).not.toContain(sessionId)
+  }, COLD_BOOT_TIMEOUT_MS)
+
   it('runs handleConnected at apply when the Host is already connected, as a reload of the row does', async ({ start }) => {
     const connected = vi.spyOn(ClientSessions.prototype, 'handleConnected')
     const { client } = await bench(start)

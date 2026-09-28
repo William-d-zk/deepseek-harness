@@ -8,6 +8,8 @@ import type {
   WorkspaceCreateRequest,
   WorkspaceCreateValue,
   WorkspaceDeleteRequest,
+  WorkspaceDeleteSessionRequest,
+  WorkspaceDeleteSessionValue,
   WorkspaceDeleteValue,
   WorkspaceFollowFrame,
   WorkspaceInsertBeforeRequest,
@@ -94,6 +96,10 @@ class FakeWorkspaceRemote implements WorkspaceRemote {
     request: WorkspaceUnarchiveSessionRequest,
   ) => Promise<RemoteResult<WorkspaceArchiveValue>> = request =>
     Promise.resolve(remoteOk({ archivedSessionIds: [request.sessionId] }))
+  onDeleteSession: (
+    _request: WorkspaceDeleteSessionRequest,
+  ) => Promise<RemoteResult<WorkspaceDeleteSessionValue>> = () =>
+    Promise.resolve(remoteOk({ deleted: true }))
   onPinSession: (
     request: WorkspacePinSessionRequest,
   ) => Promise<RemoteResult<WorkspacePinValue>> = request =>
@@ -136,6 +142,11 @@ class FakeWorkspaceRemote implements WorkspaceRemote {
   unarchiveSession(request: WorkspaceUnarchiveSessionRequest): Promise<RemoteResult<WorkspaceArchiveValue>> {
     this.record('unarchiveSession', request)
     return this.onUnarchiveSession(request)
+  }
+
+  deleteSession(request: WorkspaceDeleteSessionRequest): Promise<RemoteResult<WorkspaceDeleteSessionValue>> {
+    this.record('deleteSession', request)
+    return this.onDeleteSession(request)
   }
 
   pinSession(request: WorkspacePinSessionRequest): Promise<RemoteResult<WorkspacePinValue>> {
@@ -372,6 +383,34 @@ describe('ClientWorkspaceModel', () => {
     await expect(model.unarchiveSession(sid('fresh'))).resolves.toMatchObject({ ok: true })
     expect(model.getSnapshot().archivedSessionIds).toEqual([])
     expect(remote.calls).toContainEqual({ method: 'unarchiveSession', request: { sessionId: 'fresh' } })
+  })
+
+  it('drops a deleted Session from every local projection, and nothing on refusal', async () => {
+    const remote = new FakeWorkspaceRemote()
+    const model = new ClientWorkspaceModel(remote)
+    model.replaceBaseline({
+      items: [workspace('one', [sid('doomed'), sid('kept')])],
+      archivedSessionIds: [sid('doomed')],
+      pinnedSessionIds: [sid('doomed'), sid('kept')],
+    })
+
+    await expect(model.deleteSession(sid('doomed'))).resolves.toMatchObject({ ok: true })
+    expect(model.getSnapshot().items[0]!.sessionIds).toEqual(['kept'])
+    expect(model.getSnapshot().archivedSessionIds).toEqual([])
+    expect(model.getSnapshot().pinnedSessionIds).toEqual(['kept'])
+    expect(remote.calls).toContainEqual({ method: 'deleteSession', request: { sessionId: 'doomed' } })
+
+    // A refused deletion leaves every projection as it was.
+    remote.onDeleteSession = () => Promise.resolve(workspaceError(
+      new RemoteError('workspace/session-active', 'busy', { sessionId: sid('kept'), activity: [{ kind: 'probe' }] }),
+    ))
+    await expect(model.deleteSession(sid('kept'), { stopActivity: true })).resolves.toMatchObject({ ok: false })
+    expect(model.getSnapshot().items[0]!.sessionIds).toEqual(['kept'])
+    expect(model.getSnapshot().pinnedSessionIds).toEqual(['kept'])
+    expect(remote.calls).toContainEqual({
+      method: 'deleteSession',
+      request: { sessionId: 'kept', stopActivity: true },
+    })
   })
 
   it('keeps the latest unarchive reply when overlapping requests settle out of order', async () => {

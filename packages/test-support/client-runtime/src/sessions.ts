@@ -311,7 +311,7 @@ export class TestSessions implements ISessions {
 
   /** Calls observed on the service-level face, newest last. */
   readonly calls: {
-    method: 'create' | 'refreshProjections' | 'refresh' | 'search' | 'fork'
+    method: 'create' | 'refreshProjections' | 'refresh' | 'search' | 'fork' | 'removeSession'
     args: unknown[]
   }[] = []
 
@@ -495,6 +495,17 @@ export class TestSessions implements ISessions {
       })
       this.generations.get(id as SessionId)?.snapshot.update((draft) => { draft.removed = true })
     })
+  }
+
+  /**
+   * Apply one locally concluded removal (the caller deleted the Session on the
+   * Host) through the catalog removal a forwarded event performs.
+   * @param sessionId - deleted Session identity.
+   */
+  removeSession(sessionId: SessionId): void {
+    this.calls.push({ method: 'removeSession', args: [sessionId] })
+    if (!this.records.has(sessionId)) return
+    void this.remove(sessionId)
   }
 
   /**

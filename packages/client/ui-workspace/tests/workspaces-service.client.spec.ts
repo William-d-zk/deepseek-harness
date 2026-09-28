@@ -153,6 +153,16 @@ class FakeSessions implements ISessions {
     return reference
   })
   readonly subagentAddress = vi.fn<ISessions['subagentAddress']>()
+  /** Local removal echoes recorded for the deletion tests. */
+  readonly removeCalls: SessionId[] = []
+  readonly removeSession = vi.fn<ISessions['removeSession']>((sessionId) => {
+    this.removeCalls.push(sessionId)
+    this.list.update(state => ({
+      ...state,
+      ids: state.ids.filter(id => id !== sessionId),
+      byId: Object.fromEntries(Object.entries(state.byId).filter(([id]) => id !== sessionId)),
+    }))
+  })
   declare readonly using: ISessions['using']
   declare readonly retainInfo: ISessions['retainInfo']
   declare readonly searchResultLimit: ISessions['searchResultLimit']
@@ -210,6 +220,13 @@ class FakeWorkspaces implements IWorkspaces {
   archiveSession(sessionId: SessionId): Promise<void> {
     this.archiveCalls.push(sessionId)
     return this.onArchive(sessionId)
+  }
+
+  readonly deleteCalls: SessionId[] = []
+  onDeleteSession: IWorkspaces['deleteSession'] = async () => {}
+  deleteSession(sessionId: SessionId): Promise<void> {
+    this.deleteCalls.push(sessionId)
+    return this.onDeleteSession(sessionId)
   }
 
   unarchiveSession(sessionId: SessionId): Promise<void> {
@@ -1078,6 +1095,44 @@ describe('UiWorkspaceService', () => {
     b.workspaces.onUnarchive = () => Promise.reject(new Error('unarchive rejected'))
     await expect(b.uiWorkspace.unarchiveSession(idle)).rejects.toThrow('unarchive rejected')
     expect(b.workspaces.unarchiveCalls).toEqual([idle, idle])
+  })
+
+  it('deletes a Session: forwards the stop option, clears the selection, and drops the row', async () => {
+    const b = bench()
+    b.uiWorkspace.openSession(sid('current'))
+    b.sessions.list.set({
+      ...b.sessions.list.getSnapshot(),
+      ids: [sid('current'), sid('idle')],
+      byId: {
+        ...b.sessions.list.getSnapshot().byId,
+        [String(sid('current'))]: { id: sid('current'), displayTitle: 'current', running: false, blank: false, updatedAt: 2, retainedBy: {} },
+        [String(sid('idle'))]: { id: sid('idle'), displayTitle: 'idle', running: false, blank: false, updatedAt: 1, retainedBy: {} },
+      },
+    })
+
+    await b.uiWorkspace.deleteSession(sid('current'), { stopActivity: true })
+
+    expect(b.workspaces.deleteCalls).toEqual([sid('current')])
+    // The deleted Session was the selection, so it is cleared like an archive.
+    expect(b.sessions.retained[0]!.release).toHaveBeenCalledOnce()
+    // And the row leaves the Client list with no Host event to report it.
+    expect(b.sessions.removeCalls).toEqual([sid('current')])
+    expect(b.sessions.list.getSnapshot().ids).toEqual([sid('idle')])
+  })
+
+  it('forwards delete commands and preserves failures', async () => {
+    const idle = sid('idle')
+    const b = bench()
+
+    await b.uiWorkspace.deleteSession(idle)
+    expect(b.workspaces.deleteCalls).toEqual([idle])
+    expect(b.sessions.removeCalls).toEqual([idle])
+
+    b.workspaces.onDeleteSession = () => Promise.reject(new Error('delete rejected'))
+    await expect(b.uiWorkspace.deleteSession(idle)).rejects.toThrow('delete rejected')
+    expect(b.workspaces.deleteCalls).toEqual([idle, idle])
+    // A refused deletion removes nothing locally.
+    expect(b.sessions.removeCalls).toEqual([idle])
   })
 
   it('passes directory operations to the Host and preserves structured browse failures', async () => {

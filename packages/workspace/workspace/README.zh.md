@@ -169,10 +169,11 @@ ctx.workspaceRegistry.list() // shows the project, newest first
 
 这些限制说明项目列表何时不合适，或何时需要特别的运维注意。它们是当前包约束，不是任务积压。
 
-- **移除绝不删除数据**——移除项目会保留其文件夹、文件与会话历史；这些会话变成 Ungrouped，而会话删除与文件夹移除是彼此独立且尚未提供的功能（参见[决策记录](../../../.agents/notes/implemented/feature/2026-07-27-workspace-registration-deletion.zh.md)）。
+- **移除绝不删除数据**——移除项目会保留其文件夹、文件与会话历史；这些会话变成 Ungrouped，而彻底删除会话是另一项显式操作，移除文件夹则仍未提供（参见[决策记录](../../../.agents/notes/implemented/feature/2026-07-27-workspace-registration-deletion.zh.md)）。
 - **只有带记录目录的会话才能加入**——只有记录中带有可解析为项目路径的目录的会话才属于项目；没有目录的会话保持 Ungrouped，来自其他目录的会话无法移入。
 - **外部变更延迟可见**——如果另一进程删除或损坏目录，项目只能在下次刷新或重启后反映出来。
 - **归档与取消归档执行不同的会话校验**——恢复只是从归档集合中移除 id，因此会话已不存在的条目仍能取消归档，也不会留下未知引用；对未归档 id 执行恢复不写盘即完成，而 `archiveSession` 会拒绝既非实时也未持久化的会话。
+- **删除并非归档**——`deleteSession(sessionId, { stopActivity })` 与 `archiveSession` 走同一条活动水位线并按同样方式拒绝，然后把这个 id 从每个项目的 `sessionIds` 中移除（所属记录的一次持久写入）、从 `archivedSessionIds` 和 `pinnedSessionIds` 中清除、在内存头部索引中遗忘、调用 `ctx.sessionPersistence.delete(sessionId)` 删除已存储的日志，最后把它交给已组合的投影缓存，让其派生出的检查点文档随日志一同消失。会话不留任何痕迹，因此与归档不同：没有需要过滤的集合，也没有恢复路径。
 - **活动检查与归档写入不是一个原子步骤**——在提供方作答与持久化写入之间开始的回合会在隐藏状态下运行，`agent/pre-step` 先于该写入的每个模型步连同其工具调用照常执行；API Session Controller 的门禁把写入之后提出的第一步以 `blocked` 收口，因此暴露面以该写入的时延为界，实际上是一个模型步。
 - **重新添加目录从空开始**——移除后再次添加同一目录会创建空会话列表的新项目；旧会话不会自动回来。
 

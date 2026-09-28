@@ -391,6 +391,13 @@ Host service backing the generated `ctx.remote.workspace` namespace.
 @Remote('unarchiveSession') unarchiveSession(request: WorkspaceUnarchiveSessionRequest): Promise<WorkspaceArchiveValue>
 
 /**
+ * Permanently delete one known Session's workspace accounting and durable records.
+ * @param request - Session identity to delete.
+ * @returns deletion confirmation.
+ */
+@Remote('deleteSession') deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue>
+
+/**
  * Surface one known unarchived Session ahead of unpinned Sessions.
  * @param request - Session identity to pin.
  * @returns the complete resulting pin set, most recently pinned first.
@@ -561,6 +568,27 @@ insertBefore(id: WorkspaceId, beforeId?: WorkspaceId): Promise<readonly Workspac
 archiveSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<void>
 
 /**
+ * Permanently delete one session: its workspace accounting and its durable
+ * records. Unlike {@link archiveSession}, nothing about the session
+ * survives — it leaves every workspace's `sessionIds`, the archive set, and
+ * the pin set, the persistence backend removes the stored log, and the
+ * projection cache drops its derived row, so no bucket, no restart, and no
+ * stale cache document shows it again.
+ *
+ * The session must exist (live or in session persistence); without
+ * `stopActivity` it must also be inactive, asked exactly as archiving asks:
+ * one `workspace/session-activity` waterfall, and any reported activity
+ * rejects with {@link WorkspaceActiveSessionError} before anything is
+ * written. With `stopActivity` the deletion skips the activity check, so
+ * the `workspace/session-stop` providers are asked to stop the session's
+ * work before its records are removed.
+ * @param sessionId - The session to delete.
+ * @param options - Whether running work is stopped instead of refusing.
+ * @returns resolution after durability and, with `stopActivity`, after every stop request was issued.
+ */
+deleteSession(sessionId: SessionId, options: DeleteSessionOptions = {}): Promise<void>
+
+/**
  * Unarchive one session durably by dropping it from the registry-global
  * archive set; the accounting slot was never touched, so the session
  * returns to its recorded position. Unarchiving runs no session-existence
@@ -635,21 +663,21 @@ Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/w
 
 #### `workspace/session-stop` — parallel
 
-Stop a session's running work because the caller archived it with `stopActivity`; the archive set is durable when this dispatches. Each provider stops its own families — cancelling a turn, its subagent descendants, owned jobs, or active schedules — through the same cancel paths the user's own stop actions use, so the session log ends every open turn regularly and a later unarchive can continue the conversation. Listeners issue their stop requests without waiting for running work to settle; a listener may await its own durability barrier. A rejection is logged by the registry and does not undo the archive.
+Stop a session's running work because the caller archived it with `stopActivity`, or deleted it with the same option; the archive set or the removal is durable when this dispatches. Each provider stops its own families — cancelling a turn, its subagent descendants, owned jobs, or active schedules — through the same cancel paths the user's own stop actions use, so the session log ends every open turn regularly and a later unarchive can continue the conversation. Listeners issue their stop requests without waiting for running work to settle; a listener may await its own durability barrier. A rejection is logged by the registry and does not undo the archive or the deletion.
 
 ```ts cordis-catalog
 /**
  * Stop a session's running work because the caller archived it with
- * `stopActivity`; the archive set is durable when this dispatches. Each
- * provider stops its own families — cancelling a turn, its subagent
- * descendants, owned jobs, or active schedules — through the same cancel
- * paths the user's own stop actions use, so the session log ends every
- * open turn regularly and a later unarchive can continue the
- * conversation. Listeners issue their stop requests without waiting for
- * running work to settle; a listener may await its own durability
- * barrier. A rejection is logged by the registry and does not undo the
- * archive.
- * @param request - the session being archived.
+ * `stopActivity`, or deleted it with the same option; the archive set or
+ * the removal is durable when this dispatches. Each provider stops its own
+ * families — cancelling a turn, its subagent descendants, owned jobs, or
+ * active schedules — through the same cancel paths the user's own stop
+ * actions use, so the session log ends every open turn regularly and a
+ * later unarchive can continue the conversation. Listeners issue their
+ * stop requests without waiting for running work to settle; a listener may
+ * await its own durability barrier. A rejection is logged by the registry
+ * and does not undo the archive or the deletion.
+ * @param request - the session being archived or deleted.
  * @mode parallel
  */
 'workspace/session-stop'(request: SessionActivityRequest): Promise<void> | void

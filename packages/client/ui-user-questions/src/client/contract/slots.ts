@@ -215,12 +215,22 @@ export class PendingQuestion {
 /** Pending value returned by the composer-chain selector. */
 export type QuestionWait = PendingQuestion
 
+/** Session-scoped stop supplied by this plugin's composer registration. */
+export interface QuestionInjected {
+  /**
+   * Stop the Session's running turn through its scoped Conversation, the same
+   * cancellation the composer bar's Stop button sends.
+   * @returns cancellation settlement, or undefined once the Session scope is gone.
+   */
+  stopRun(): Promise<void> | undefined
+}
+
 /**
  * Full component props: the framework runtime share (chain currency +
  * session/global standard kit) plus the chain `matched` share — the entry's
  * selector result, already narrowed to the question carrier — plus the
- * standard locale seat; the carrier plus the domain face above carry the
- * whole behavior surface.
+ * standard locale seat plus the registration's business face; the carrier and
+ * that face carry the whole behavior surface.
  */
 export type QuestionComposerProps =
   PropsRuntime<'conversation.composer'>
@@ -228,3 +238,4 @@ export type QuestionComposerProps =
   & PropsRenderSlots<'conversation.plan-review.actions'>
   & { matched: QuestionWait }
   & PropsLocale<'question'>
+  & QuestionInjected

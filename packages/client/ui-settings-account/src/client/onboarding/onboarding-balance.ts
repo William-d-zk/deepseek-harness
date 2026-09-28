@@ -1,6 +1,6 @@
 /** Available onboarding credit includes both purchased and granted wallets. */
 import { Big } from 'big.js'
-import type { AccountSnapshot } from './AccountSection.tsx'
+import type { AccountSnapshot } from '../AccountSection.tsx'
 
 /**
  * Check purchased and granted credit without treating a pending query as zero.

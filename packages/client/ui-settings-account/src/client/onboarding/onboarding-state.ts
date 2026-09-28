@@ -4,8 +4,8 @@ import { createSnapshotStore, shallowEqual } from '@deepseek-ai/dsh-client-store
 import { hasOnboardingCredit } from './onboarding-balance.ts'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SettingsDescribeFace, ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { OnboardingProgress, OnboardingSettings } from '../onboarding-settings.ts'
-import type { AccountSnapshot } from './AccountSection.tsx'
+import type { OnboardingProgress, OnboardingSettings } from '../../onboarding-settings.ts'
+import type { AccountSnapshot } from '../AccountSection.tsx'
 import type { DesktopOnboardingState, OnboardingChange } from './onboarding-contract.ts'
 
 function freshProgress(): OnboardingProgress {

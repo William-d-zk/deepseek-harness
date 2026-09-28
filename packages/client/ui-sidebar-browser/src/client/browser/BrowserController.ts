@@ -2,11 +2,11 @@
 import { createSnapshotStore, type BoundActions, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { BrowserFrameState } from './BrowserFrame.ts'
-import type { BrowserPage, BrowserPageFactory } from './BrowserPage.ts'
-import { currentBrowserTarget, type BrowserTabState } from './BrowserPersistence.ts'
+import type { BrowserFrameState } from '../contract/BrowserFrame.ts'
+import type { BrowserPage, BrowserPageFactory } from '../contract/BrowserPage.ts'
+import { currentBrowserTarget, type BrowserTabState } from '../contract/BrowserPersistence.ts'
 import type { BrowserStore } from './store.ts'
-import { parseBrowserAddress, type BrowserAddressFailure, type BrowserTarget } from './url.ts'
+import { parseBrowserAddress, type BrowserAddressFailure, type BrowserTarget } from '../contract/url.ts'
 
 /** Live tab state; navigation comes from its provider and draft validation stays local. */
 export interface BrowserControllerState {

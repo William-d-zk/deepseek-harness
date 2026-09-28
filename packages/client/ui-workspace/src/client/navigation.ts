@@ -110,6 +110,15 @@ export interface UiWorkspace {
    */
   archiveSession(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>
   /**
+   * Delete a Session for good: its workspace accounting, its archive entry,
+   * its pin, and its durable records on the Host. The Session leaves the
+   * Client's list in the same call, and it is cleared from the selection when
+   * it was the current conversation.
+   * @param sessionId - Session to delete.
+   * @param options - `stopActivity` asks the Host to stop the Session's running work instead of refusing.
+   */
+  deleteSession(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>
+  /**
    * Unarchive a Session, restoring it to its recorded Workspace position.
    * @param sessionId - Session to unarchive.
    */
@@ -293,6 +302,15 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   async archiveSession(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
     await this.workspaces.archiveSession(sessionId, options)
     if (this.mainReference?.sessionId === sessionId) this.clearMain()
+  }
+
+  async deleteSession(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
+    await this.workspaces.deleteSession(sessionId, options)
+    if (this.mainReference?.sessionId === sessionId) this.clearMain()
+    // The Host records are gone, so the row must leave the Client list now:
+    // nothing will report this Session again, and a later reconnect would
+    // re-add any row the durable list still named.
+    this.sessions.removeSession(sessionId)
   }
 
   async unarchiveSession(sessionId: SessionId): Promise<void> {

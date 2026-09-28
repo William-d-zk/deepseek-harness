@@ -115,6 +115,9 @@ const kit: Omit<QuestionComposerProps, 'matched'> = {
   sessionId: SID,
   session: undefined,
   pendingInteraction: undefined,
+  // The plan-review presentation renders no question-card header, so the
+  // registration's stop face stays a stub here.
+  stopRun: () => Promise.resolve(),
   useSession: selector => selector(sessionState),
   useSessions: selector => selector(sessionList),
   usePanelInfo, useResource,

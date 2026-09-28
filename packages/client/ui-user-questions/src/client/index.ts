@@ -22,7 +22,7 @@ import type { TypertClientEventListener } from '@deepseek-ai/dsh-typert-protocol
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
-import { PendingQuestion } from './contract/slots.ts'
+import { PendingQuestion, type QuestionInjected } from './contract/slots.ts'
 import { createQuestionDraftStore } from './draft-store.ts'
 import { QuestionComposer } from './QuestionComposer.tsx'
 import { en, zh, type QuestionKey } from './locales.ts'
@@ -98,6 +98,17 @@ export function apply(ctx: ClientContext): void {
         pendingInteraction instanceof PendingQuestion ? pendingInteraction : null,
       locale: NS,
       store: questionDraftStore,
+      // Stop rides the surrounding Session's own Conversation scope — the
+      // same cancellation the composer bar's Stop button sends — so the card
+      // can end the turn it holds.
+      inject: (sessionId): QuestionInjected => ({
+        stopRun: () => {
+          const sessions: ISessions = ctx.sessions
+          const scoped = sessions.scope(sessionId)
+          if (scoped === undefined) return undefined
+          return scoped.get('conversation')?.cancel()
+        },
+      }),
       children: { 'conversation.plan-review.actions': { kind: 'list', scope: 'session' } },
     },
     QuestionComposer,

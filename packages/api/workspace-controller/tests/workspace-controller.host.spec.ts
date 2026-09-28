@@ -61,7 +61,11 @@ async function harness(options: { systemDocuments?: boolean } = {}) {
   const storageDomain = new DomainFacility(ctx, { backend: 'memory', routes: {} })
   ctx.storage.mount('domain', storageDomain)
   ctx.provide('storageDomain', storageDomain)
-  ctx.provide('sessionPersistence', { list: () => Promise.resolve([]) } as never)
+  const removeSession = vi.fn(async () => true)
+  ctx.provide('sessionPersistence', {
+    list: () => Promise.resolve([]),
+    delete: removeSession,
+  } as never)
   await ctx.plugin(WorkspaceRegistry)
   const dispose = (): void => {}
   ctx.provide('typert', {
@@ -69,7 +73,7 @@ async function harness(options: { systemDocuments?: boolean } = {}) {
     contexts: { configureHost: () => dispose },
   } as never)
   const controller = new WorkspaceController(ctx, options.systemDocuments === true ? {} : { documentsDirectory: root })
-  return { controller, ctx, root, storageDomain }
+  return { controller, ctx, root, storageDomain, removeSession }
 }
 
 function stageDir(root: string, name: string): string {
@@ -272,6 +276,40 @@ describe('WorkspaceController commands', () => {
     // Unarchive is idempotent: an id that is not archived is not an error.
     await expect(controller.unarchiveSession({ sessionId: session.id }))
       .resolves.toEqual({ archivedSessionIds: [] })
+  })
+
+  it('deletes a known Session, mapping its refusals and stopping work on request', async () => {
+    const { controller, ctx, root, removeSession } = await harness()
+    const created = await controller.create({ path: stageDir(root, 'deletes') })
+    const session = ctx.sessions.create(SessionId('delete-me'), {
+      meta: { cwd: created.workspace.path },
+    })
+    await controller.archiveSession({ sessionId: session.id })
+
+    // A Session reported active refuses the plain deletion with what runs, as
+    // the archive command does, and nothing is removed.
+    const activity = [{ kind: 'probe' as const }]
+    const stopReporting = ctx.on('workspace/session-activity', async ({ sessionId }, next) =>
+      sessionId === session.id ? [...activity, ...(await next())] : next())
+    await expect(controller.deleteSession({ sessionId: session.id })).rejects.toMatchObject({
+      code: 'workspace/session-active',
+      details: { sessionId: session.id, activity },
+    })
+    expect(removeSession).not.toHaveBeenCalled()
+
+    await expect(controller.deleteSession({ sessionId: SessionId('unknown') }))
+      .rejects.toMatchObject({ code: 'session/not-found' })
+
+    // Asking to stop the work deletes the still-active Session.
+    const stops: string[] = []
+    const stopListening = ctx.on('workspace/session-stop', ({ sessionId }) => { stops.push(String(sessionId)) })
+    await expect(controller.deleteSession({ sessionId: session.id, stopActivity: true }))
+      .resolves.toEqual({ deleted: true })
+    expect(stops).toEqual([String(session.id)])
+    expect(removeSession).toHaveBeenCalledWith(session.id)
+    expect([...ctx.workspaceRegistry.archivedSessionIds]).toEqual([])
+    stopListening()
+    stopReporting()
   })
 
   it('pins only known unarchived Sessions and unpins idempotently', async () => {

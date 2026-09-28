@@ -913,7 +913,10 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
                   className={css.pathInput}
                   value={pathDraft}
                   aria-label={t('browser.editPath')}
-                  data-modal-autofocus
+                  // React autoFocus (not data-modal-autofocus): the editor opens
+                  // while the dialog is already mounted, so the modal layer's
+                  // initial-focus pass has run long before this input exists.
+                  autoFocus
                   ref={pathInputRef}
                   disabled={parentInert}
                   onChange={(event) => {
@@ -1055,7 +1058,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
             value={folderDraft ?? ''}
             aria-label={t(appPicking ? 'browser.appName' : 'browser.folderName')}
             placeholder={t(appPicking ? 'browser.untitledApp' : 'browser.untitledFolder')}
-            autoFocus
+            data-modal-autofocus
             disabled={creatingFolder}
             onChange={(event) => { setFolderDraft(event.target.value) }}
             {...compositionGuard}

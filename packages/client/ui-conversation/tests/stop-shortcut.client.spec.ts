@@ -120,21 +120,26 @@ describe('fixed stop routing', () => {
     expect(b.cancel).toHaveBeenCalledOnce()
   })
 
-  it('clears when an approval appears and disappears between presses', async () => {
+  it('stops the running turn while a pending interaction owns the composer', async () => {
     const b = await bench()
     const publish = b.runtime.ctx.uiSession.registerPendingInteraction<SessionPendingInteractionBase>(() => 0)
-    b.press()
-    const remove = publish({ kind: 'approval', key: 'request-a', sessionId: 's1' as SessionId }, async () => {})
-    expect(b.press()).not.toHaveBeenCalled()
-    remove()
-    b.press()
-    expect(b.cancel).not.toHaveBeenCalled()
-    const removeSecond = publish({ kind: 'approval', key: 'request-b', sessionId: 's1' as SessionId }, async () => {})
-    removeSecond()
-    b.press()
-    expect(b.cancel).not.toHaveBeenCalled()
-    b.press()
+    const remove = publish({ kind: 'question', key: 'request-a', sessionId: 's1' as SessionId }, async () => {})
+    expect(b.press()).toHaveBeenCalledOnce()
+    expect(b.press()).toHaveBeenCalledOnce()
+    await Promise.resolve()
     expect(b.cancel).toHaveBeenCalledOnce()
+    remove()
+  })
+
+  it('keeps the remaining guards while a pending interaction is up', async () => {
+    const b = await bench()
+    const publish = b.runtime.ctx.uiSession.registerPendingInteraction<SessionPendingInteractionBase>(() => 0)
+    const remove = publish({ kind: 'question', key: 'request-a', sessionId: 's1' as SessionId }, async () => {})
+    await b.runtime.sessions.updateSessionSnapshot('s1', (draft) => { draft.running = false })
+    expect(b.press()).not.toHaveBeenCalled()
+    expect(b.press()).not.toHaveBeenCalled()
+    expect(b.cancel).not.toHaveBeenCalled()
+    remove()
   })
 
   it('excludes terminal, iframe, approval and inert descendants even inside Conversation', async () => {

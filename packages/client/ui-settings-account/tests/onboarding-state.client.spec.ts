@@ -8,7 +8,7 @@ import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/
 import { ConfigFormController } from '@deepseek-ai/dsh-client-ui-settings/src/client/config-form.ts'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { AccountSnapshot } from '../src/client/AccountSection.tsx'
-import { DesktopOnboardingController } from '../src/client/onboarding-state.ts'
+import { DesktopOnboardingController } from '../src/client/onboarding/onboarding-state.ts'
 import { DESKTOP_ONBOARDING_NAMESPACE, OnboardingSettingsSchema, type OnboardingProgress, type OnboardingSettings } from '../src/onboarding-settings.ts'
 
 const cleanup: (() => void | Promise<void>)[] = []

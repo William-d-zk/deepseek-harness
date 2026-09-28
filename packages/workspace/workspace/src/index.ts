@@ -10,6 +10,7 @@ import { mkdir, stat } from 'node:fs/promises'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-persistence'
+import type {} from '@deepseek-ai/dsh-session-projection-cache'
 import type { DomainGlobal, KvTable } from '@deepseek-ai/dsh-storage-domain'
 import { WorkspaceEntity } from './entity.ts'
 import type { WorkspaceEntityHost } from './entity.ts'
@@ -40,33 +41,39 @@ export function WorkspaceId(id: string): WorkspaceId {
 }
 
 /**
- * An archiveSession or pinSession request named a session neither live nor in
- * session persistence — a definite miss only; storage faults propagate as
- * themselves.
+ * A deleteSession, archiveSession, or pinSession request named a session
+ * neither live nor in session persistence — a definite miss only; storage
+ * faults propagate as themselves.
  */
 export class WorkspaceUnknownSessionError extends Error {
   /**
    * @param sessionId - The unknown session id.
    * @param verb - The registry operation that named the session.
    */
-  constructor(readonly sessionId: SessionId, verb: 'archive' | 'pin') {
+  constructor(readonly sessionId: SessionId, verb: 'delete' | 'archive' | 'pin') {
     super(`cannot ${verb} session '${sessionId}': live sessions and session persistence hold no such session`)
     this.name = 'WorkspaceUnknownSessionError'
   }
 }
 
 /**
- * An archiveSession request named a session that at least one
+ * An archiveSession or deleteSession request named a session that at least one
  * `workspace/session-activity` listener reported active. Nothing was written;
- * `activity` names what must stop before the session can be archived.
+ * `activity` names what must stop before the session can be archived or
+ * deleted.
  */
 export class WorkspaceActiveSessionError extends Error {
   /**
    * @param sessionId - The active session id.
    * @param activity - The reported activity, in listener order.
+   * @param verb - The registry operation that named the session.
    */
-  constructor(readonly sessionId: SessionId, readonly activity: readonly SessionActivity[]) {
-    super(`cannot archive session '${sessionId}': the session is active (${activity.map(entry => entry.kind).join(', ')})`)
+  constructor(
+    readonly sessionId: SessionId,
+    readonly activity: readonly SessionActivity[],
+    verb: 'archive' | 'delete' = 'archive',
+  ) {
+    super(`cannot ${verb} session '${sessionId}': the session is active (${activity.map(entry => entry.kind).join(', ')})`)
     this.name = 'WorkspaceActiveSessionError'
   }
 }
@@ -110,6 +117,18 @@ export interface ArchiveSessionOptions {
   readonly stopActivity?: boolean
 }
 
+/** Caller choices for {@link WorkspaceRegistry.deleteSession}. */
+export interface DeleteSessionOptions {
+  /**
+   * Ask the composed providers to stop the session's running work instead of
+   * refusing the deletion because of it. The accounting and the stops are
+   * written first, then the durable records go; running work is never awaited
+   * to settlement, and a provider failure is logged without keeping the
+   * session's already-removed records.
+   */
+  readonly stopActivity?: boolean
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     workspaceRegistry: WorkspaceRegistry
@@ -132,16 +151,16 @@ declare module '@deepseek-ai/cordis' {
     ): Promise<readonly SessionActivity[]>
     /**
      * Stop a session's running work because the caller archived it with
-     * `stopActivity`; the archive set is durable when this dispatches. Each
-     * provider stops its own families — cancelling a turn, its subagent
-     * descendants, owned jobs, or active schedules — through the same cancel
-     * paths the user's own stop actions use, so the session log ends every
-     * open turn regularly and a later unarchive can continue the
-     * conversation. Listeners issue their stop requests without waiting for
-     * running work to settle; a listener may await its own durability
-     * barrier. A rejection is logged by the registry and does not undo the
-     * archive.
-     * @param request - the session being archived.
+     * `stopActivity`, or deleted it with the same option; the archive set or
+     * the removal is durable when this dispatches. Each provider stops its own
+     * families — cancelling a turn, its subagent descendants, owned jobs, or
+     * active schedules — through the same cancel paths the user's own stop
+     * actions use, so the session log ends every open turn regularly and a
+     * later unarchive can continue the conversation. Listeners issue their
+     * stop requests without waiting for running work to settle; a listener may
+     * await its own durability barrier. A rejection is logged by the registry
+     * and does not undo the archive or the deletion.
+     * @param request - the session being archived or deleted.
      * @mode parallel
      */
     'workspace/session-stop'(request: SessionActivityRequest): Promise<void> | void
@@ -385,6 +404,73 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
+   * Permanently delete one session: its workspace accounting and its durable
+   * records. Unlike {@link archiveSession}, nothing about the session
+   * survives — it leaves every workspace's `sessionIds`, the archive set, and
+   * the pin set, the persistence backend removes the stored log, and the
+   * projection cache drops its derived row, so no bucket, no restart, and no
+   * stale cache document shows it again.
+   *
+   * The session must exist (live or in session persistence); without
+   * `stopActivity` it must also be inactive, asked exactly as archiving asks:
+   * one `workspace/session-activity` waterfall, and any reported activity
+   * rejects with {@link WorkspaceActiveSessionError} before anything is
+   * written. With `stopActivity` the deletion skips the activity check, so
+   * the `workspace/session-stop` providers are asked to stop the session's
+   * work before its records are removed.
+   * @param sessionId - The session to delete.
+   * @param options - Whether running work is stopped instead of refusing.
+   * @returns resolution after durability and, with `stopActivity`, after every stop request was issued.
+   */
+  deleteSession(sessionId: SessionId, options: DeleteSessionOptions = {}): Promise<void> {
+    return this.enqueueOperation(async () => {
+      // The chain slot serializes against every other registry write, so this
+      // check-then-write pair cannot interleave with another delete or archive.
+      if (!(await this.sessionKnown(sessionId))) {
+        throw new WorkspaceUnknownSessionError(sessionId, 'delete')
+      }
+      if (options.stopActivity !== true) {
+        const activity = await this.ctx.waterfall(
+          'workspace/session-activity', { sessionId }, () => Promise.resolve([]),
+        )
+        if (activity.length > 0) throw new WorkspaceActiveSessionError(sessionId, activity, 'delete')
+      }
+      const state = this.requireState()
+      await this.setState({
+        ...state,
+        archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+        pinnedSessionIds: state.pinnedSessionIds.filter(id => id !== sessionId),
+      })
+      await this.detachSessionAccounting(sessionId)
+      if (options.stopActivity === true) await this.stopSessionActivity(sessionId)
+      // The in-memory header index must forget the session before its records
+      // go: nothing may answer for an id that no longer exists.
+      this.headers.delete(sessionId)
+      this.sessionPaths.delete(sessionId)
+      this.invalidSessionPaths.delete(sessionId)
+      await this.ctx.sessionPersistence.delete(sessionId)
+      await this.dropCachedProjection(sessionId)
+    })
+  }
+
+  /**
+   * Drop one deleted session's cached projection row — the last durable trace
+   * of a session the registry removed. The cache is a separate derived store,
+   * optional in the composition, so its absence is not an error. The drop runs
+   * after the stored log: with the log gone, no write the still-live Session
+   * could issue can put the row back. A failed drop leaves a stale derived
+   * document behind, never an undeleted session, so it is logged instead of
+   * failing a deletion whose own durability already succeeded.
+   */
+  private async dropCachedProjection(sessionId: SessionId): Promise<void> {
+    try {
+      await this.ctx.get('sessionProjectionCache')?.forget(sessionId)
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`workspace: dropping the cached projection row for deleted session '${sessionId}' failed (the session stays deleted): ${String(error)}`)
+    }
+  }
+
+  /**
    * Unarchive one session durably by dropping it from the registry-global
    * archive set; the accounting slot was never touched, so the session
    * returns to its recorded position. Unarchiving runs no session-existence
@@ -474,6 +560,20 @@ export class WorkspaceRegistry extends Service {
     if (this.headers.has(id)) return true
     await this.indexHeaders(await this.listStoredHeaders())
     return this.headers.has(id)
+  }
+
+  /**
+   * Drop one session from every workspace's manual order. Only the owning
+   * record changes, and `detachSession`'s chain-slot guard turns the sweep
+   * over the other entities into a no-op, so exactly one durable write lands
+   * for an accounted session.
+   */
+  private async detachSessionAccounting(sessionId: SessionId): Promise<void> {
+    for (const entity of this.entities.values()) {
+      const record = this.requireTable().get(entity.id)
+      if (record === undefined || !record.sessionIds.includes(sessionId)) continue
+      await entity.detachSession(sessionId)
+    }
   }
 
   /** Request every provider's stop; a failing provider is logged, never a reason to keep the session visible. */

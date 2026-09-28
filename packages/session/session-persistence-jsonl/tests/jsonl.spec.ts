@@ -348,6 +348,42 @@ runLiveWritePathContract('jsonl', LIVE_WRITE_BATCH_MAX_DELAY_MS, async () => {
   return { ctx: await mount(), remount: mount }
 })
 
+describe('JsonlSessionPersistence: delete', () => {
+  it('removes the session directory that holds the log and the write lock', async () => {
+    const root = await freshRoot()
+    const ctx = new Context()
+    await ctx.plugin(JsonlSessionPersistence, { root, compression: 'none' })
+    const m = meta('delete-on-disk', '/work')
+    await writeLog(ctx.sessionPersistence, m, oneTurnLog())
+    expect(await readdir(projectDir(root, '/work'))).toEqual([encodeSegment(m.id)])
+
+    await expect(ctx.sessionPersistence.delete(m.id)).resolves.toBe(true)
+
+    // Log generations and lock live in the session's own directory; removing
+    // that directory is the whole footprint.
+    await expect(stat(rawLogPath(root, '/work', m.id))).rejects.toThrow(/ENOENT/)
+    expect(await readdir(projectDir(root, '/work'))).toEqual([])
+    await expect(ctx.sessionPersistence.delete(m.id)).resolves.toBe(false)
+    await ctx.fiber.dispose()
+  })
+
+  it('erases a created-but-unmaterialized session without ever touching the root', async () => {
+    const root = await freshRoot()
+    const ctx = new Context()
+    await ctx.plugin(JsonlSessionPersistence, { root, compression: 'none' })
+    const m = meta('delete-pending-on-disk')
+    const handle = await ctx.sessionPersistence.create(m)
+
+    await expect(ctx.sessionPersistence.delete(m.id)).resolves.toBe(true)
+
+    // The session never materialized, so nothing landed in the root, and the
+    // handle the removal settled refuses further reads.
+    expect(await readdir(root)).toEqual([])
+    await expect(handle.read()).rejects.toThrow(/on a closed handle/)
+    await ctx.fiber.dispose()
+  })
+})
+
 describe('JsonlSessionPersistence: format helpers', () => {
   it('names and parses only canonical immutable generations', () => {
     expect(generationLogFilename(0, 'none')).toBe('session.jsonl')
