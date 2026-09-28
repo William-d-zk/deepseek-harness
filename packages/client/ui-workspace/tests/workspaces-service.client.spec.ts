@@ -819,6 +819,25 @@ describe('UiWorkspaceService', () => {
     expect(b.sessions.create).not.toHaveBeenCalled()
   })
 
+  it('binds a saved blank that no Workspace accounts for, instead of showing it ungrouped', async () => {
+    // The reported case: an app was renamed, so the saved blank's cwd names a
+    // directory no Workspace covers. Leaving it as the main selection surfaced
+    // it in the sidebar's trailing Ungrouped bucket next to a live Workspace.
+    persistSelection({ sessionId: sid('stray') })
+    const acquired = Promise.withResolvers<SessionId>()
+    const b = bench({
+      sessions: sessionState([summary('stray', { blank: true, cwd: '/w/renamed-away' })]),
+      workspaces: workspaceState([workspace('a', [])]),
+      configureSessions: (sessions) => { sessions.create.mockReturnValue(acquired.promise) },
+    })
+    expect(b.sessions.retain).not.toHaveBeenCalledWith(sid('stray'), { source: 'mainView' })
+    expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('a') })
+    acquired.resolve(sid('created-a'))
+    await vi.waitFor(() => {
+      expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('created-a'), { source: 'mainView' })
+    })
+  })
+
   it('reclaims the saved blank before opening history, even when another blank is listed first', async () => {
     persistSelection({ sessionId: sid('saved') })
     const acquired = Promise.withResolvers<SessionId>()

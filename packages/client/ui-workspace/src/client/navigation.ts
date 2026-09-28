@@ -392,7 +392,14 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const summary = saved.sessionId === undefined ? undefined : sessions.byId[saved.sessionId]
     const workspace = summary === undefined ? undefined
       : workspaces.items.find(item => item.sessionIds.includes(summary.id))
-    if (summary !== undefined && (!summary.blank || workspace === undefined)) {
+    // A non-blank Session is shown whatever accounts for it. A blank one belongs
+    // to a Workspace: when the tree has one to offer, an unbound blank — its app
+    // was renamed away, or its Workspace entry was removed — is replaced below by
+    // a blank that Workspace accounts for, instead of surfacing as the ungrouped
+    // stray the sidebar keeps a trailing bucket for. Only a tree with no
+    // Workspace at all falls back to showing it as it is.
+    if (summary !== undefined
+      && (!summary.blank || (workspace === undefined && workspaces.items.length === 0))) {
       this.replaceMain(summary.id, this.lifetime.signal, 'preserve')
       return
     }
