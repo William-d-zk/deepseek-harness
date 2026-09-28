@@ -11,6 +11,7 @@ import type {
   SessionStatusSnapshot,
 } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { fallbackWorkspacePath } from './navigation.ts'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 
@@ -361,7 +362,14 @@ function groupByWorkspace(
     .map(id => list.byId[id])
     .filter((s): s is SessionSummary =>
       s !== undefined && !accounted.has(s.id) && sessionVisible(s, current, archived, archivedFilter))
-  if (stray.length > 0) {
+  // A deployment that declares a fallback Workspace (the account's default app)
+  // has no ungrouped concept: the caller renders those Sessions inside that
+  // Workspace, so no trailing bucket is built here. Checked against the passed
+  // list, which is the caller's (namespace-filtered) view.
+  const fallbackPath = fallbackWorkspacePath()
+  const bucketApplies = fallbackPath === undefined
+    || !workspaces.some(workspace => workspace.path === fallbackPath)
+  if (stray.length > 0 && bucketApplies) {
     groups.push(buildGroup(
       UNGROUPED_KEY,
       undefined,

@@ -262,6 +262,23 @@ describe('deriveGroups', () => {
     expect(groups[1]!.sessions.map(session => session.id)).toEqual([sid('loose')])
   })
 
+  it('builds no Ungrouped group when the deployment declares a fallback Workspace', () => {
+    // The AppCreator gate: the account's default app is the fallback, so a loose
+    // Session belongs to it and the bucket has nothing to hold. This spec runs
+    // without a DOM, so the gate value is injected through a minimal storage stub.
+    const sessions = list(summary('owned', 1, '/projects/fallback'), summary('loose', 9, '/projects/elsewhere'))
+    const store = { getItem: (key: string) => (key === 'dsh.uiWorkspace.fallbackWorkspacePath' ? '/projects/fallback' : null) }
+    Object.defineProperty(globalThis, 'localStorage', { value: store, configurable: true })
+    try {
+      const groups = deriveGroups(
+        sessions, [workspace('fallback', [])], noRows, noAttention, view([UNGROUPED_KEY]),
+      )
+      expect(groups.map(group => group.key)).toEqual(['fallback'])
+    } finally {
+      Reflect.deleteProperty(globalThis, 'localStorage')
+    }
+  })
+
   it('applies stored Ungrouped order and appends new loose Sessions by recency', () => {
     const sessions = list(summary('one', 3), summary('two', 2), summary('new', 4))
     const groups = deriveGroups(
