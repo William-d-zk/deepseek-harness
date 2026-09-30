@@ -1,20 +1,10 @@
 import { availableParallelism } from 'node:os'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import { defineConfig } from 'vitest/config'
+import { positiveIntFromEnv } from './scripts/test-workers.ts'
 import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
 
 const DEFAULT_SNAPSHOT_MAX_CONCURRENCY = 5
-
-function positiveIntFromEnv(name: string, fallback: number): number {
-  const raw = process.env[name]
-  if (raw === undefined || raw === '') return fallback
-
-  const value = Number(raw)
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${name} must be a positive integer, got ${JSON.stringify(raw)}`)
-  }
-  return value
-}
 
 const snapshotMaxConcurrency = positiveIntFromEnv(
   'DSH_SNAPSHOT_MAX_CONCURRENCY',

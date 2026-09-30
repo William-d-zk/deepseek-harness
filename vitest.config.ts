@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { availableParallelism } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import { resolvePwshPath } from './packages/shell/pwsh-local/src/resolve.ts'
@@ -6,6 +7,7 @@ import { defineConfig } from 'vitest/config'
 import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
 import { COVERAGE_EXEMPT_ENV, coverageExemptHeavySuites } from './scripts/coverage-exempt.ts'
 import { COVERAGE_PARTITION_MODE_ENV, COVERAGE_TEST_TIMEOUT_ENV, coverageTestTimeoutOptions } from './scripts/coverage-partitions.ts'
+import { resolveTestMaxWorkers } from './scripts/test-workers.ts'
 
 // Prints exact `path:line:col` records for every uncovered statement, branch
 // path, and function when a file misses the per-file 100% gate — the built-in
@@ -150,6 +152,11 @@ const coveragePartitionMode = coveragePartitionRaw === '1'
 // owns the rule and its reach).
 const laneTestBudget = coverageTestTimeoutOptions(process.env[COVERAGE_TEST_TIMEOUT_ENV])
 
+// Every spec file forks its own Node process, so the concurrent-file count is
+// what sets peak resident memory; DSH_TEST_MAX_WORKERS raises or lowers the cap
+// for one run (scripts/test-workers.ts owns the default and its bound).
+const laneMaxWorkers = resolveTestMaxWorkers(availableParallelism())
+
 // These suites exercise process-global state, process APIs, or timing-sensitive process I/O
 // that worker threads cannot isolate reliably under aggregate gate contention.
 // Keep the narrow exception in forks while the rest of the inventory avoids per-file processes.
@@ -167,43 +174,35 @@ const processBoundTests = [
 export default defineConfig({
   plugins: [pathsPlugin(), standardDecoratorPlugin()],
   test: {
+    // Single source for every lane-wide option: an inline project extends this
+    // config, and Vite's mergeConfig CONCATENATES arrays instead of replacing
+    // them, so any value written both here and in a project applies twice. The
+    // inventory is the proof — a root-level `include` ran every file in both
+    // lanes — so the projects below keep only what makes them different.
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts', './scripts/test-dom-environment.ts'],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
-    include: testIncludes,
-    exclude: platformUnsupportedTests,
+    exclude: [...platformUnsupportedTests, ...coverageExemptExcludes],
+    execArgv: vitestExecArgv,
+    // Node 24 has aborted in its CJS lexer (v8::ToLocalChecked Empty
+    // MaybeLocal in cjs_lexer::Parse) from worker threads on macOS, Linux, and
+    // Windows. Forked workers avoid that shared thread path.
+    pool: 'forks',
+    maxWorkers: laneMaxWorkers,
+    ...laneTestBudget,
     // One coverage invocation aggregates both projects. Every suite forks for
     // Node stability; process-bound suites stay separate for inventory control.
     projects: [
       {
-        plugins: [pathsPlugin(), standardDecoratorPlugin()],
         test: {
           name: 'thread-safe',
-          execArgv: vitestExecArgv,
-          // Node 24 has aborted in its CJS lexer (v8::ToLocalChecked Empty
-          // MaybeLocal in cjs_lexer::Parse) from worker threads on macOS,
-          // Linux, and Windows. Forked workers avoid that shared thread path.
-          pool: 'forks',
-          ...laneTestBudget,
           include: testIncludes,
-          exclude: [
-            ...platformUnsupportedTests,
-            ...processBoundTests,
-            ...coverageExemptExcludes,
-          ],
+          exclude: processBoundTests,
         },
       },
       {
-        plugins: [pathsPlugin(), standardDecoratorPlugin()],
         test: {
           name: 'process-bound',
-          execArgv: vitestExecArgv,
-          pool: 'forks',
-          ...laneTestBudget,
           include: processBoundTests,
-          exclude: [
-            ...platformUnsupportedTests,
-            ...coverageExemptExcludes,
-          ],
         },
       },
     ],
