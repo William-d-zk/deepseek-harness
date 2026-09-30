@@ -32,7 +32,7 @@ cd /tmp/wt-merge && git merge --no-commit --no-ff upstream/master
 N=node_modules/.bin/tsx
 $N scripts/check-workspace-constraints.ts    # ① fork 本地包版本必须等于根版本（如 dsh-page-feedback 随每次上游 release bump）；vendor 引用必须是 workspace:~
 $N scripts/verify-no-unknown-casts.ts        # ② 报 remove retired baseline entries → 用 --prune 重生成（合并解析会退役断言）
-$N scripts/rescope-vendor.ts --check         # ③ 报 residue → 该文件带 pre-rescope 名字令牌（如 PropsLocale<'cordis'>）→ 往 GENERIC_SKIPS 加 { file, upstream: [...] }
+$N scripts/rescope-vendor.ts --check         # ③ 报 residue → 该文件把 vendored 包名当成产品数据写在字符串字面量里 → 往 GENERIC_SKIPS 加 { file, upstream: [...] }
 $N scripts/verify-package-dependencies.ts    # ④
 ```
 
