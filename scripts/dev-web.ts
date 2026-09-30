@@ -297,7 +297,7 @@ const STOP_GRACE_MS = 6_000
  * @param args - command arguments.
  * @param local - whether to resolve `command` from the workspace's installed bins.
  */
-function spawnStage(
+export function spawnStage(
   supervisor: StageSupervisor,
   name: string,
   command: string,

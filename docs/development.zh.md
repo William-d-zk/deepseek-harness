@@ -166,11 +166,14 @@ Web 与 Desktop 共用同一对命令。`start:*` 启动上一次 `pnpm run buil
 ```sh
 pnpm run start:web       # serve built Web artifacts through the source launcher (the same launch as pnpm dsh web)
 pnpm run dev:web         # build, serve, and rebuild Web client bundles on source edits
+pnpm run dev:lib         # rewrite lib/ for consumer checkouts as sources change
 pnpm run start:desktop   # launch built Desktop artifacts
 pnpm run dev:desktop     # build, then launch Desktop
 ```
 
 Web 命令后面的参数会传给 `dsh web`，例如 `pnpm run dev:web --no-open --port 3081`；`dev:web` 还接受 `--skip-build` 复用现有产物树，以及 `--no-serve` 只运行重建 watcher、配合别处启动的服务器。两个 Web 命令使用正常的 Harness home，而 Desktop 命令使用 [Desktop README](../apps/desktop/README.zh.md) 描述的隔离开发 home。根目录 `Makefile` 以 `make web`、`make dev-web`、`make desktop`、`make dev-desktop` 和 `make build` 命名同一套命令；`ARGS='--no-open'` 用于转发参数。
+
+`pnpm run dev:lib` 在你编辑本仓时持续刷新已构建的 `lib/` 产物：两个面的类型声明与运行时 bundle 随源码变化重写。把本仓列为 workspace 成员的消费方检出（`dsh-alioth`、`dsh-chess`）通过各包的 `exports` 导入每个 `@deepseek-ai/dsh-*` 包，所以一次源码改动要在其 `lib/` 被重写后才被它们看到 —— 把这个循环挂在它们的 dev server 旁边，就不必重新发布或重装。`--poll` 为网络挂载选择固定轮询监视；desktop bundle 不在该循环内，因为它打包的是 Electron 应用，而不是消费方导入的包。
 
 ### TODO 标记
 

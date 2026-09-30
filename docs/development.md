@@ -162,11 +162,14 @@ Web and Desktop share one command pair. `start:*` launches the artifacts of a pr
 ```sh
 pnpm run start:web       # serve built Web artifacts through the source launcher (the same launch as pnpm dsh web)
 pnpm run dev:web         # build, serve, and rebuild Web client bundles on source edits
+pnpm run dev:lib         # rewrite lib/ for consumer checkouts as sources change
 pnpm run start:desktop   # launch built Desktop artifacts
 pnpm run dev:desktop     # build, then launch Desktop
 ```
 
 Arguments after a Web command reach `dsh web`, for example `pnpm run dev:web --no-open --port 3081`; `dev:web` also accepts `--skip-build` to reuse the existing artifact tree and `--no-serve` to run only the rebuild watchers beside a server started elsewhere. Both Web commands use the normal Harness home, while the Desktop commands use the isolated development home described in the [Desktop README](../apps/desktop/README.md). The root `Makefile` names the same commands as `make web`, `make dev-web`, `make desktop`, `make dev-desktop`, and `make build`; `ARGS='--no-open'` forwards options.
+
+`pnpm run dev:lib` keeps this workspace's built `lib/` artifacts fresh while you edit it: both faces' type declarations and runtime bundles are rewritten as sources change. The consumer checkouts that list this tree as a workspace member (`dsh-alioth`, `dsh-chess`) import every `@deepseek-ai/dsh-*` package through its `exports`, so a source edit reaches them once its `lib/` is rewritten — run this loop beside their dev servers instead of republishing or reinstalling. `--poll` selects fixed-interval watchers for network mounts, and the desktop bundle stays out of the loop because it packages the Electron app rather than the packages a consumer imports.
 
 ### TODO markers
 
