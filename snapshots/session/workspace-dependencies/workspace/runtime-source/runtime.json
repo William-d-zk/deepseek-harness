@@ -4,8 +4,8 @@
   "arch": "arm64",
   "components": {
     "python": "3.12.14",
-    "node": "24.21.0",
-    "pnpm": "11.7.0",
+    "node": "26.10.0",
+    "pnpm": "12.8.1",
     "numpy": "2.3.5",
     "pandas": "3.0.1"
   },

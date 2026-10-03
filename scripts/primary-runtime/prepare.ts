@@ -137,7 +137,9 @@ export async function preparePrimaryRuntime(options: PreparePrimaryRuntimeOption
         join(dependencies, 'node', 'bin', target === 'win-x64' ? 'node.exe' : 'node'))
       cpSync(join(nodeSource, 'LICENSE'), join(dependencies, 'node', 'LICENSE'))
       const require = createRequire(import.meta.url)
-      const pnpmManifest = require.resolve('pnpm')
+      // `pnpm`'s npm package ships only `bin` (no main/exports), so resolving
+      // the bare specifier fails; the manifest path is what we read and copy.
+      const pnpmManifest = require.resolve('pnpm/package.json')
       pnpmVersion = (JSON.parse(readFileSync(pnpmManifest, 'utf8')) as { version: string }).version
       await cp(dirname(pnpmManifest), join(dependencies, 'pnpm'), { recursive: true, dereference: true })
     }

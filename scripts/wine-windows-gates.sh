@@ -12,7 +12,7 @@
 # pnpm store. The Wine prefix and the checksum-verified Windows Node zip
 # persist in .cache/wine-windows/ so reruns skip provisioning.
 #
-# Environment: DSH_WINE_NODE_MAJOR (default $PRIMARY_NODE_VERSION, then 24)
+# Environment: DSH_WINE_NODE_MAJOR (default $PRIMARY_NODE_VERSION, then 26)
 # picks the Windows Node line; DSH_WINE_GATE_CACHE_DIR relocates the cache;
 # DSH_WINE_GATE_KEEP=1 preserves the scratch tree for inspection.
 
@@ -22,7 +22,7 @@ repo_root="$(git rev-parse --show-toplevel)"
 # The scratch tree has no Git metadata or Windows Git executable.
 DSH_CLIENT_COMMIT_HASH="$(git -C "$repo_root" rev-parse HEAD)"
 export DSH_CLIENT_COMMIT_HASH
-node_major="${DSH_WINE_NODE_MAJOR:-${PRIMARY_NODE_VERSION:-24}}"
+node_major="${DSH_WINE_NODE_MAJOR:-${PRIMARY_NODE_VERSION:-26}}"
 cache_dir="${DSH_WINE_GATE_CACHE_DIR:-$repo_root/.cache/wine-windows}"
 
 export WINEDEBUG='-all'

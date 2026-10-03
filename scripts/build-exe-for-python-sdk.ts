@@ -25,7 +25,7 @@ const ENTRY_BIN = 'runtime-bootstrap.mjs'
 /** Python-visible executable basename. */
 const OUTPUT_BASENAME = 'deepseek-harness-sdk-runtime'
 /** Default Node major; SEA mode requires at least Node 22. */
-const DEFAULT_NODE_RANGE = 'node24'
+const DEFAULT_NODE_RANGE = 'node26'
 const OUT_DIR = 'dist-exe'
 /** Python package destination; created when absent. */
 const PYTHON_RUNTIME_DIR = 'python/sdk-runtime/src/deepseek_harness_runtime/runtime'
@@ -99,17 +99,17 @@ class Target {
 
   /**
    * Parse one target spec, rejecting malformed triples and unsupported platform or architecture.
-   * @param spec - the raw triple, e.g. `node24-linux-x64`.
+   * @param spec - the raw triple, e.g. `node26-linux-x64`.
    * @returns the parsed target.
    */
   static parse(spec: string): Target {
     const parts = spec.split('-')
     const [nodeRange, platform, arch] = parts
     if (parts.length !== 3 || nodeRange === undefined || platform === undefined || arch === undefined) {
-      throw new Error(`build-exe-for-python-sdk: target ${JSON.stringify(spec)} must be <nodeRange>-<platform>-<arch>, e.g. node24-linux-x64.`)
+      throw new Error(`build-exe-for-python-sdk: target ${JSON.stringify(spec)} must be <nodeRange>-<platform>-<arch>, e.g. node26-linux-x64.`)
     }
     if (!/^node\d+$/.test(nodeRange)) {
-      throw new Error(`build-exe-for-python-sdk: target ${JSON.stringify(spec)}: node range must look like node24, got ${JSON.stringify(nodeRange)}.`)
+      throw new Error(`build-exe-for-python-sdk: target ${JSON.stringify(spec)}: node range must look like node26, got ${JSON.stringify(nodeRange)}.`)
     }
     if (!isPlatform(platform)) {
       throw new Error(`build-exe-for-python-sdk: target ${JSON.stringify(spec)}: platform must be one of ${PLATFORMS.join(', ')}, got ${JSON.stringify(platform)}.`)
@@ -124,7 +124,7 @@ class Target {
   }
 
   /**
-   * Resolve the host-platform default on Node 24.
+   * Resolve the host-platform default on Node 26.
    * @returns the host target; throws on an unsupported host platform or arch.
    */
   static host(): Target {
@@ -212,8 +212,8 @@ class BuildCli {
     return [
       'Usage: pnpm exec tsx scripts/build-exe-for-python-sdk.ts [flags]',
       '',
-      '  --targets=<t1,t2,...>  pkg targets, e.g. node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-macos-x64,node24-win-x64.',
-      '                         Default: the host platform only (on node24).',
+      '  --targets=<t1,t2,...>  pkg targets, e.g. node26-linux-x64,node26-linux-arm64,node26-macos-arm64,node26-macos-x64,node26-win-x64.',
+      '                         Default: the host platform only (on node26).',
       '  --skip-build           skip `pnpm run build` (lib/ artifacts must already exist).',
       '  --dry-run              print every command and config patch without executing.',
       '  --help                 print this help.',

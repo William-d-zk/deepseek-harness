@@ -18,7 +18,9 @@ const RUNTIME_ROOT = BUILD_PATHS.runtime
 
 function preparePnpm(): string {
   const require = createRequire(import.meta.url)
-  const manifestPath = require.resolve('pnpm')
+  // `pnpm`'s npm package ships only `bin` (no main/exports), so the bare
+  // specifier does not resolve; the manifest path is what we read and copy.
+  const manifestPath = require.resolve('pnpm/package.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { version?: unknown }
   if (typeof manifest.version !== 'string') throw new Error('desktop runtime: pnpm manifest has no version')
   const packageDir = dirname(manifestPath)

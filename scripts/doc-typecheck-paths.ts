@@ -1,5 +1,11 @@
 /** Map one workspace source alias target to its declaration-build target. */
 export function builtDeclarationPath(candidate: string): string {
+  // Aliases pinned into this checkout's own install (`playwright`, `vitest`)
+  // already resolve to that package's own declarations: keep them as-is
+  // instead of rejecting them as unmappable workspace sources.
+  if (candidate.includes('/node_modules/')) {
+    return candidate
+  }
   // Two workspace path forms exist: whole-package entries end in /src, subpath
   // wildcards (browser-safe /types and /client channels) in /src/*.
   if (candidate.endsWith('/src')) {

@@ -78,7 +78,7 @@ describe('master-only platform scheduling', () => {
     expect(pr.jobs['python-runtime']).toMatchObject({
       if: "github.event_name == 'pull_request'",
       uses: runtimeBuilder,
-      with: { ci: true, targets: 'node24-linux-x64,node24-win-x64' },
+      with: { ci: true, targets: 'node26-linux-x64,node26-win-x64' },
     })
     expect(pr.jobs.windows).toBeUndefined()
     expect(JSON.stringify(pr.jobs)).not.toMatch(/wine-windows-gates|check:windows-wine/)
@@ -100,7 +100,7 @@ describe('master-only platform scheduling', () => {
     expect(runtime).toMatchObject({
       if: masterPush,
       uses: runtimeBuilder,
-      with: { ci: true, targets: 'node24-linux-arm64,node24-macos-arm64,node24-macos-x64' },
+      with: { ci: true, targets: 'node26-linux-arm64,node26-macos-arm64,node26-macos-x64' },
       secrets: { DEEPSEEK_API_KEY_EXTERNAL: '${{ secrets.DEEPSEEK_API_KEY_EXTERNAL }}' },
     })
     expect(runtime.needs).toBeUndefined()
@@ -152,7 +152,7 @@ describe('master-only platform scheduling', () => {
     expect(calls).toHaveLength(1)
     expect(calls[0]!.with).toMatchObject({
       release: true,
-      targets: 'node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-macos-x64,node24-win-x64',
+      targets: 'node26-linux-x64,node26-linux-arm64,node26-macos-arm64,node26-macos-x64,node26-win-x64',
     })
   })
 })

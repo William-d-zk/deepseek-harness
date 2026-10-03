@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 env:
-  PRIMARY_NODE_VERSION: '24'
+  PRIMARY_NODE_VERSION: '26'
   # CI runs must never report to the production telemetry endpoint baked
   # into apps/cli/cordis.yml (AppCLIEntry disables the row when set).
   DSH_TELEMETRY_DISABLED: '1'
@@ -36,7 +36,7 @@ jobs:
     name: python runtime / macOS and Linux ARM64
     uses: ./.github/workflows/build-exe-for-python-sdk.yml
     with:
-      targets: node24-linux-arm64,node24-macos-arm64,node24-macos-x64
+      targets: node26-linux-arm64,node26-macos-arm64,node26-macos-x64
       ci: true
     secrets:
       DEEPSEEK_API_KEY_EXTERNAL: ${{ secrets.DEEPSEEK_API_KEY_EXTERNAL }}
@@ -45,7 +45,7 @@ jobs:
   windows:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    name: windows node 24 / wine
+    name: windows node 26 / wine
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6

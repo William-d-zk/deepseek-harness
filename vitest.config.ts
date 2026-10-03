@@ -183,18 +183,20 @@ export default defineConfig({
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
     exclude: [...platformUnsupportedTests, ...coverageExemptExcludes],
     execArgv: vitestExecArgv,
-    // Node 24 has aborted in its CJS lexer (v8::ToLocalChecked Empty
-    // MaybeLocal in cjs_lexer::Parse) from worker threads on macOS, Linux, and
-    // Windows. Forked workers avoid that shared thread path.
-    pool: 'forks',
     maxWorkers: laneMaxWorkers,
-    ...laneTestBudget,
+    // The fork pool and the lane test budget live in each inline project
+    // below, not here: a project owns them (scripts/ci-workflow.spec.ts counts
+    // exactly one of each per project).
     // One coverage invocation aggregates both projects. Every suite forks for
     // Node stability; process-bound suites stay separate for inventory control.
     projects: [
       {
         test: {
           name: 'thread-safe',
+          // Forked workers avoid the shared thread path that has aborted in
+          // Node's CJS lexer (cjs_lexer::Parse) on macOS, Linux, and Windows.
+          pool: 'forks',
+          ...laneTestBudget,
           include: testIncludes,
           exclude: processBoundTests,
         },
@@ -202,6 +204,8 @@ export default defineConfig({
       {
         test: {
           name: 'process-bound',
+          pool: 'forks',
+          ...laneTestBudget,
           include: processBoundTests,
         },
       },

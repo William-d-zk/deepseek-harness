@@ -79,7 +79,7 @@ runtime-linux-x64:
   extends: .runtime-wheel
   tags: [linux-x64]
   variables:
-    PKG_TARGET: node24-linux-x64
+    PKG_TARGET: node26-linux-x64
     PLATFORM: linux-x64
   needs:
     - job: sdk-wheel
@@ -89,7 +89,7 @@ runtime-linux-arm64:
   extends: .runtime-wheel
   tags: [linux-arm64]
   variables:
-    PKG_TARGET: node24-linux-arm64
+    PKG_TARGET: node26-linux-arm64
     PLATFORM: linux-arm64
   needs:
     - job: sdk-wheel
@@ -99,7 +99,7 @@ runtime-macos-arm64:
   extends: .runtime-wheel
   tags: [macos-arm64]
   variables:
-    PKG_TARGET: node24-macos-arm64
+    PKG_TARGET: node26-macos-arm64
     PLATFORM: macos-arm64
   needs:
     - job: sdk-wheel
@@ -109,7 +109,7 @@ runtime-macos-x64:
   extends: .runtime-wheel
   tags: [macos-x64]
   variables:
-    PKG_TARGET: node24-macos-x64
+    PKG_TARGET: node26-macos-x64
     PLATFORM: macos-x64
   needs:
     - job: sdk-wheel
@@ -119,7 +119,7 @@ runtime-windows-x64:
   stage: build
   tags: [windows-x64]
   variables:
-    PKG_TARGET: node24-win-x64
+    PKG_TARGET: node26-win-x64
     PLATFORM: win-x64
   needs:
     - job: sdk-wheel

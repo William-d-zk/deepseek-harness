@@ -54,7 +54,7 @@ describe('Python runtime executable builder CLI', () => {
       { npm_execpath: 'C:\\tools\\pnpm.cjs' },
       '--skip-build',
       '--dry-run',
-      '--targets=node24-macos-arm64',
+      '--targets=node26-macos-arm64',
     )
 
     expect(result.status).toBe(0)
@@ -82,7 +82,7 @@ describe('Python runtime executable builder CLI', () => {
       { npm_execpath: 'C:\\tools\\pnpm.cmd', PNPM_HOME: home },
       '--skip-build',
       '--dry-run',
-      '--targets=node24-macos-arm64',
+      '--targets=node26-macos-arm64',
     )
 
     expect(result.status).toBe(0)
@@ -95,12 +95,12 @@ describe('Python runtime executable builder CLI', () => {
       { npm_execpath: 'C:\\tools\\pnpm.cjs' },
       '--skip-build',
       '--dry-run',
-      '--targets=node24-macos-x64',
+      '--targets=node26-macos-x64',
     )
 
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('exec pkg')
-    expect(result.stdout).toContain('--sea --targets node24-macos-x64')
+    expect(result.stdout).toContain('--sea --targets node26-macos-x64')
     expect(result.stdout).toContain('prepare Python and Office skills for mac-x64')
     expect(result.stdout).toContain(join(root, 'dist-exe', 'macos-x64'))
   })
@@ -110,7 +110,7 @@ describe('Python runtime executable builder CLI', () => {
       { npm_execpath: 'C:\\tools\\pnpm.cjs' },
       '--skip-build',
       '--dry-run',
-      '--targets=node24-win-arm64',
+      '--targets=node26-win-arm64',
     )
 
     expect(result.status).not.toBe(0)

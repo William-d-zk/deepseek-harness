@@ -25,7 +25,7 @@ describe('PR preview workflow', () => {
   })
 
   it('keeps the immutable full build and restore-only dependency cache', () => {
-    expect(workflow.env.PRIMARY_NODE_VERSION).toBe('24')
+    expect(workflow.env.PRIMARY_NODE_VERSION).toBe('26')
     expect(workflow.env.DSH_TELEMETRY_DISABLED).toBe('1')
     const commands = preview.steps.map(step => step.run)
     expect(commands).toContain('pnpm install --frozen-lockfile')

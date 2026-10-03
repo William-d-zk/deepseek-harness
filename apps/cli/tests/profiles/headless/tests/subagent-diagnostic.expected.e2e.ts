@@ -128,7 +128,16 @@ describe('parent-owned cold child catalog snapshot', () => {
         const sessionsDir = join(runCwd, '.sessions')
         const files = (await readdir(sessionsDir, { recursive: true })).filter(file => file.endsWith('.jsonl'))
         const logs = await Promise.all(files.map(async file => readFile(join(sessionsDir, file), 'utf8')))
-        const parent = logs.find(content => content.includes('"subagent-diagnostic-parent"'))
+        // Select the parent by its header id: the child's header carries
+        // `parentSession: parentId`, so a substring match would also hit the
+        // child file and depend on `readdir` traversal order.
+        const headerId = (content: string): string | undefined => {
+          const raw: unknown = JSON.parse(content.split('\n')[0] ?? '{}')
+          if (raw === null || typeof raw !== 'object' || !('id' in raw)) return undefined
+          const id: unknown = raw.id
+          return typeof id === 'string' ? id : undefined
+        }
+        const parent = logs.find(content => headerId(content) === parentId)
         if (parent === undefined) throw new Error('missing persisted parent log')
 
         // THE model-visible fact: the parent catalog supplies discovery even

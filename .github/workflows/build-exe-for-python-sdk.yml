@@ -35,8 +35,8 @@ on:
       targets:
         description: >-
           Comma-separated pkg targets to build. Any subset of:
-          node24-linux-x64, node24-linux-arm64, node24-macos-arm64,
-          node24-macos-x64, node24-win-x64. Empty builds all five.
+          node26-linux-x64, node26-linux-arm64, node26-macos-arm64,
+          node26-macos-x64, node26-win-x64. Empty builds all five.
         type: string
         required: false
         default: ''
@@ -92,7 +92,7 @@ jobs:
         id: plan
         env:
           # Blank dispatch inputs build all targets.
-          TARGETS: ${{ inputs.targets || 'node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-macos-x64,node24-win-x64' }}
+          TARGETS: ${{ inputs.targets || 'node26-linux-x64,node26-linux-arm64,node26-macos-arm64,node26-macos-x64,node26-win-x64' }}
         run: |
           set -euo pipefail
           matrix='[]'
@@ -103,13 +103,13 @@ jobs:
             # Native-only: hosted arm64 Linux uses ubuntu-24.04-arm, while
             # macos-latest is Apple Silicon; macos-15-intel is native x64.
             case "$t" in
-              node24-linux-x64)   runner=ubuntu-latest ;;
-              node24-linux-arm64) runner=ubuntu-24.04-arm ;;
-              node24-macos-arm64) runner=macos-latest ;;
-              node24-macos-x64)   runner=macos-15-intel ;;
-              node24-win-x64)     runner=windows-2025 ;;
+              node26-linux-x64)   runner=ubuntu-latest ;;
+              node26-linux-arm64) runner=ubuntu-24.04-arm ;;
+              node26-macos-arm64) runner=macos-latest ;;
+              node26-macos-x64)   runner=macos-15-intel ;;
+              node26-win-x64)     runner=windows-2025 ;;
               *)
-                echo "::error::Unknown target '$t'. Supported: node24-linux-x64, node24-linux-arm64, node24-macos-arm64, node24-macos-x64, node24-win-x64."
+                echo "::error::Unknown target '$t'. Supported: node26-linux-x64, node26-linux-arm64, node26-macos-arm64, node26-macos-x64, node26-win-x64."
                 exit 1
                 ;;
             esac
@@ -157,9 +157,9 @@ jobs:
     needs: [plan, sdk-wheel]
     name: ${{ matrix.target }}
     runs-on: >-
-      ${{ inputs.ci && !inputs.release && matrix.target == 'node24-linux-x64'
+      ${{ inputs.ci && !inputs.release && matrix.target == 'node26-linux-x64'
           && vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-2vcpu-ubuntu-2404'
-          || inputs.ci && !inputs.release && matrix.target == 'node24-win-x64'
+          || inputs.ci && !inputs.release && matrix.target == 'node26-win-x64'
           && vars.DSH_CI_FAILOVER_WINDOWS == 'blacksmith' && 'blacksmith-2vcpu-windows-2025'
           || matrix.runner }}
     timeout-minutes: 45
@@ -269,7 +269,7 @@ jobs:
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
           set -euo pipefail
-          platform="${TARGET#node24-}"
+          platform="${TARGET#node26-}"
           exe="$PWD/dist-exe/deepseek-harness-sdk-runtime-$platform"
           case "$platform" in
             linux-x64) wheel=deepseek_harness_runtime_bin-$VERSION-py3-none-manylinux_2_28_x86_64.whl ;;
@@ -291,7 +291,7 @@ jobs:
           TARGET: ${{ matrix.target }}
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          if ($env:TARGET -ne 'node24-win-x64') { throw "Unsupported runtime target $env:TARGET" }
+          if ($env:TARGET -ne 'node26-win-x64') { throw "Unsupported runtime target $env:TARGET" }
           $platform = 'win-x64'
           $exe = Join-Path $PWD 'dist-exe\deepseek-harness-sdk-runtime-win-x64.exe'
           $wheel = "deepseek_harness_runtime_bin-$env:VERSION-py3-none-win_amd64.whl"

@@ -125,7 +125,13 @@ describe('parent-only override inheritance snapshot', () => {
         const logs = await Promise.all(files.map(async file => readFile(join(sessionsDir, file), 'utf8')))
         const headerOf = (content: string): Record<string, unknown> =>
           JSON.parse(content.split('\n')[0] ?? '{}') as Record<string, unknown>
-        const parent = logs.find(content => content.includes('"subagent-inheritance-parent"'))
+        // Select the parent by its header id: the child's header carries
+        // `parentSession`, so a substring match would also hit the child file
+        // and depend on `readdir` traversal order.
+        const parent = logs.find((content) => {
+          const id: unknown = headerOf(content).id
+          return typeof id === 'string' && id === sessionId
+        })
         const child = logs.find(content => typeof headerOf(content).parentSession === 'string')
         if (parent === undefined || child === undefined) throw new Error('missing persisted parent or child log')
 

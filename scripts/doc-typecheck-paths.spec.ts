@@ -10,6 +10,12 @@ describe('builtDeclarationPath', () => {
       .toBe('./packages/core/session/lib/types/invariant.d.ts')
   })
 
+  it('keeps aliases pinned into this checkout install (node_modules) as-is', () => {
+    expect(builtDeclarationPath('./apps/web/node_modules/playwright'))
+      .toBe('./apps/web/node_modules/playwright')
+    expect(builtDeclarationPath('./node_modules/vitest')).toBe('./node_modules/vitest')
+  })
+
   it('rejects aliases without a supported source target', () => {
     expect(() => builtDeclarationPath('./packages/runtime-diagnostics/invariants/source/index.ts'))
       .toThrow('cannot map workspace source path')

@@ -6,7 +6,7 @@ permissions:
   contents: read
 
 env:
-  PRIMARY_NODE_VERSION: '24'
+  PRIMARY_NODE_VERSION: '26'
   # CI runs must never report to the production telemetry endpoint baked
   # into apps/cli/cordis.yml (AppCLIEntry disables the row when set).
   DSH_TELEMETRY_DISABLED: '1'
@@ -39,7 +39,7 @@ jobs:
   # serial-linux-selfhosted standby lane in ci-master.yml. The Windows failover
   # switch is the separate DSH_CI_FAILOVER_WINDOWS variable on the windows-native
   # job below.
-  node-24:
+  node-26:
     if: github.event_name == 'pull_request'
     runs-on: >-
       ${{ vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-8vcpu-ubuntu-2404'
@@ -47,7 +47,7 @@ jobs:
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
           || 'dsh-ubuntu-24-04-16core' }}
-    name: node 24 / static
+    name: node 26 / static
     env:
       # Shared hosts expose host CPUs, not an isolated allocation.
       DSH_GATE_CONCURRENCY: ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '8' || '' }}
@@ -107,7 +107,7 @@ jobs:
           DSH_ARCHIVE_BASE_REF: ${{ github.event.pull_request.base.sha }}
         run: pnpm run check:ci:static
 
-  node-24-coverage:
+  node-26-coverage:
     if: github.event_name == 'pull_request'
     runs-on: >-
       ${{ vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-16vcpu-ubuntu-2404'
@@ -115,7 +115,7 @@ jobs:
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
           || 'dsh-ubuntu-24-04-16core' }}
-    name: node 24 / coverage
+    name: node 26 / coverage
     env:
       # Shared hosts expose host CPUs, not an isolated allocation.
       DSH_COVERAGE_MAX_WORKERS: ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '6' || '' }}
@@ -190,10 +190,10 @@ jobs:
       - name: Run exhaustive coverage
         run: pnpm run check:ci:coverage
 
-  node-24-bench:
+  node-26-bench:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    name: node 24 / benchmarks
+    name: node 26 / benchmarks
     # Wall-clock budgets need an otherwise idle runner, so this job runs the
     # benchmark lane alone instead of joining a concurrent gate aggregate.
     timeout-minutes: 15
@@ -236,7 +236,7 @@ jobs:
           DSH_GATE_VERBOSE: '1'
         run: pnpm run check:ci:bench
 
-  node-24-consumers:
+  node-26-consumers:
     if: github.event_name == 'pull_request'
     runs-on: >-
       ${{ vars.DSH_CI_FAILOVER_LINUX == 'blacksmith' && 'blacksmith-16vcpu-ubuntu-2404'
@@ -244,7 +244,7 @@ jobs:
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
           || 'dsh-ubuntu-24-04-16core' }}
-    name: node 24 / snapshots and artifacts
+    name: node 26 / snapshots and artifacts
     env:
       # Shared hosts expose host CPUs, not an isolated allocation.
       DSH_GATE_CONCURRENCY: ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '10' || '' }}
@@ -489,7 +489,7 @@ jobs:
     name: python runtime / release-shaped matrix
     uses: ./.github/workflows/build-exe-for-python-sdk.yml
     with:
-      targets: node24-linux-x64,node24-win-x64
+      targets: node26-linux-x64,node26-win-x64
       ci: true
     secrets:
       DEEPSEEK_API_KEY_EXTERNAL: ${{ secrets.DEEPSEEK_API_KEY_EXTERNAL }}
@@ -508,7 +508,7 @@ jobs:
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "dsh-win-ci", "windows"]')
           || 'dsh-windows-2025-16core' }}
-    name: windows node 24 / build & observational
+    name: windows node 26 / build & observational
     timeout-minutes: 60
     env:
       # A failing build or site aborts the sibling gate on the same runner.
@@ -570,7 +570,7 @@ jobs:
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "dsh-win-ci", "windows"]')
           || 'dsh-windows-2025-16core' }}
-    name: windows node 24 / coverage
+    name: windows node 26 / coverage
     timeout-minutes: 120
     env:
       # Shared hosts expose host CPUs, not an isolated allocation.
@@ -648,7 +648,7 @@ jobs:
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "dsh-win-ci", "windows"]')
           || 'dsh-windows-2025-16core' }}
-    name: windows node 24 / native tests
+    name: windows node 26 / native tests
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
@@ -714,7 +714,7 @@ jobs:
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
           || 'ubuntu-latest' }}
-    needs: [node-24, node-24-coverage, node-24-bench, node-24-consumers, node-compat, python-sdk, python-runtime, windows-build, windows-native-tests]
+    needs: [node-26, node-26-coverage, node-26-bench, node-26-consumers, node-compat, python-sdk, python-runtime, windows-build, windows-native-tests]
     if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     steps:
       - name: Fail if any needed job did not succeed

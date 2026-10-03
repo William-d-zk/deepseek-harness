@@ -168,18 +168,7 @@ export class WorkspaceCommands {
         request.stopActivity === true ? { stopActivity: true } : {},
       )
     } catch (error) {
-      if (error instanceof WorkspaceUnknownSessionError) {
-        throw new RemoteError('session/not-found', error.message, { sessionId: request.sessionId }, { cause: error })
-      }
-      if (error instanceof WorkspaceActiveSessionError) {
-        throw new RemoteError(
-          'workspace/session-active',
-          error.message,
-          { sessionId: request.sessionId, activity: error.activity },
-          { cause: error },
-        )
-      }
-      throw error
+      this.rethrowSessionMutationFailure(error, request.sessionId)
     }
     return { archivedSessionIds: [...this.ctx.workspaceRegistry.archivedSessionIds] }
   }
@@ -211,18 +200,7 @@ export class WorkspaceCommands {
         request.stopActivity === true ? { stopActivity: true } : {},
       )
     } catch (error) {
-      if (error instanceof WorkspaceUnknownSessionError) {
-        throw new RemoteError('session/not-found', error.message, { sessionId: request.sessionId }, { cause: error })
-      }
-      if (error instanceof WorkspaceActiveSessionError) {
-        throw new RemoteError(
-          'workspace/session-active',
-          error.message,
-          { sessionId: request.sessionId, activity: error.activity },
-          { cause: error },
-        )
-      }
-      throw error
+      this.rethrowSessionMutationFailure(error, request.sessionId)
     }
     return { deleted: true }
   }
@@ -257,6 +235,25 @@ export class WorkspaceCommands {
   async unpinSession(request: WorkspaceUnpinSessionRequest): Promise<WorkspacePinValue> {
     await this.ctx.workspaceRegistry.unpinSession(request.sessionId)
     return { pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds] }
+  }
+
+  /** Map one registry Session-mutation failure onto the stable remote error surface. */
+  private rethrowSessionMutationFailure(
+    error: unknown,
+    sessionId: WorkspaceArchiveSessionRequest['sessionId'],
+  ): never {
+    if (error instanceof WorkspaceUnknownSessionError) {
+      throw new RemoteError('session/not-found', error.message, { sessionId }, { cause: error })
+    }
+    if (error instanceof WorkspaceActiveSessionError) {
+      throw new RemoteError(
+        'workspace/session-active',
+        error.message,
+        { sessionId, activity: error.activity },
+        { cause: error },
+      )
+    }
+    throw error
   }
 
   private requireWorkspace(workspaceId: WorkspaceId): Workspace {
