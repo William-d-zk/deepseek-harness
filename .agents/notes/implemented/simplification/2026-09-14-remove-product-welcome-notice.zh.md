@@ -46,4 +46,4 @@ Console 再也无法呈现按版本发布的产品声明，也没有任何面向
 
 Console 的语言中不再出现框架的测试阶段：四个 locale 键、文案模块与厂商口号是一起消失的，这正是 hero 品牌改写属于本次变更、而非一次纯文案编辑的原因。
 
-取代关系是局部的。[GUI 欢迎引导](../../archived/feature/2026-07-30-versioned-gui-welcome-onboarding.md)与[共享弹窗](../../archived/feature/2026-08-13-shared-modal-product-onboarding.md)两份已归档记录保持不变，作为这份声明为何存在、以及有序归属与共享弹窗如何决策的历史记录；本记录负责它为何被移除。[remote-event-delivery](../architecture/2026-08-10-remote-event-delivery.zh.md)记录保留其测试侧镜像决策，其中的 welcome-notice 示例已成为历史。
+取代关系是局部的。[GUI 欢迎引导](../../archived/feature/2026-07-30-versioned-gui-welcome-onboarding.md)与[共享弹窗](../../archived/feature/2026-08-13-shared-modal-product-onboarding.md)两份已归档记录保持不变，作为这份声明为何存在、以及有序归属与共享弹窗如何决策的历史记录；本记录负责它为何被移除。[remote-event-delivery](../../archived/architecture/2026-08-10-remote-event-delivery.md)记录保留其测试侧镜像决策，其中的 welcome-notice 示例已成为历史。

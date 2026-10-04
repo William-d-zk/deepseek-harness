@@ -15,6 +15,11 @@ const HOST_DEPENDENCY_PACKAGES: readonly string[] = [
   '@deepseek-ai/dsh-session',
 ]
 
+/** Required Cordis services whose Host imports are type-only. */
+const REQUIRED_SERVICE_PEERS = {
+  '@deepseek-ai/dsh-api-terminal-controller': ['@deepseek-ai/dsh-subprocess'],
+} as const satisfies Readonly<Record<string, readonly string[]>>
+
 /** Development-only package relationships not represented by source imports. */
 const CONFIGURATION_ONLY_DEV_DEPENDENCIES = {
   '@deepseek-ai/dsh-client-locale': ['@deepseek-ai/dsh-api-remotes'],
@@ -75,6 +80,7 @@ export interface PackageDependencyPolicy {
   readonly duplicateSafePackages?: readonly string[]
   readonly safeHostDependencyExports: HostDependencyExports
   readonly peerRequiredHostExports: HostDependencyExports
+  readonly requiredServicePeers?: Readonly<Record<string, readonly string[]>>
 }
 
 /** Repository dependency policy consumed by verification and benchmarking. */
@@ -86,6 +92,7 @@ export const PACKAGE_DEPENDENCY_POLICY: PackageDependencyPolicy = {
   duplicateSafePackages: DUPLICATE_SAFE_PACKAGES,
   safeHostDependencyExports: SAFE_HOST_DEPENDENCY_EXPORTS,
   peerRequiredHostExports: PEER_REQUIRED_HOST_EXPORTS,
+  requiredServicePeers: REQUIRED_SERVICE_PEERS,
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
