@@ -788,6 +788,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'baseUrl', description: 'clean application URL whose authority and mount are preserved.' }],
         returns: 'tokenized URL for initial login; a mount proxy strips its prefix before {@link authorizeIndex}.',
       },
+      {
+        signature: 'registerAccountResolver(resolver: ConnectionAccountResolver): () => void',
+        description: 'Register the host-login account resolver (opt-in). The resolver maps one request\'s headers (cookie jar) to the signed-in account string, or null. Host plugins (directory pickers, session consumers) read the account of the dispatch/stream currently being processed through `currentConnectionAccount()`.',
+        parameters: [{ name: 'resolver', description: 'header-to-account resolver; replaces any prior one.' }],
+        returns: 'a disposer clearing the resolver.',
+      },
+      {
+        signature: 'resolveAccount(headers: ConnectionAccountHeaders): Promise<string | null>',
+        description: 'Resolve the signed-in account for one request (boundary use).',
+        parameters: [{ name: 'headers', description: 'request headers (cookie jar).' }],
+        returns: 'the resolver\'s account claim, or null when anonymous/unregistered.',
+      },
     ],
   },
   {
@@ -1586,6 +1598,73 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'pageFeedback',
+    summary: 'The store surface mounted on `ctx.pageFeedback`: annotation lifecycle, append-only audit chain, long-poll watch, and resolve evidence.',
+    description: 'The store surface mounted on `ctx.pageFeedback`: annotation lifecycle, append-only audit chain, long-poll watch, and resolve evidence.',
+    methods: [
+      {
+        signature: 'health(): { ok: boolean; annotations: number; pending: number }',
+        description: 'Report store liveness and the current annotation counts.',
+        parameters: [],
+        returns: '`ok: true` while the store answers, `annotations` for every stored row, and `pending` for the rows still open (`pending` or `acknowledged`).',
+      },
+      {
+        signature: 'ensureSession(origin: string, url: string): FeedbackSession',
+        description: 'Return the viewer session for one page, creating it on first use.',
+        parameters: [{ name: 'origin', description: 'origin the page\'s annotations are pinned to.' }, { name: 'url', description: 'page URL inside that origin.' }],
+        returns: 'the stored session for this `(origin, url)` pair, or a new one whose `createdAt` is now.',
+      },
+      {
+        signature: 'addAnnotation(input: AddAnnotationInput, source?: AuditSource): Annotation',
+        description: 'Record a new annotation as `pending` and wake every pending watcher.',
+        parameters: [{ name: 'input', description: 'comment plus page and element locators; a blank comment is rejected, and a non-empty `sessionId` joins that stored session instead of resolving one from the input origin and URL.' }, { name: 'source', description: 'audit attribution tier; the overlay posts as `browser`.' }],
+        returns: 'the stored annotation with its `created` audit row appended.',
+      },
+      {
+        signature: 'pending(): Annotation[]',
+        description: 'List the open annotations, newest first.',
+        parameters: [],
+        returns: 'every `pending` or `acknowledged` annotation, ordered by creation time descending.',
+      },
+      {
+        signature: 'get(id: string): Annotation | null',
+        description: 'Read one annotation.',
+        parameters: [{ name: 'id', description: 'annotation id.' }],
+        returns: 'the stored annotation, or `null` when no row carries the id.',
+      },
+      {
+        signature: 'setStatus( id: string, status: AnnotationStatus | undefined, reply: string | undefined, source?: AuditSource, ): Annotation',
+        description: 'Apply a status, a reply, or both, appending one audit row per change.',
+        parameters: [{ name: 'id', description: 'annotation id; an unknown id is an error.' }, { name: 'status', description: 'desired status; `undefined` keeps the current one, an illegal transition is an error, and the current status records no event.' }, { name: 'reply', description: 'reply text; `undefined` keeps the stored reply.' }, { name: 'source', description: 'audit attribution tier; model consumers post as `model`.' }],
+        returns: 'the annotation after the write.',
+      },
+      {
+        signature: 'history(id: string): AnnotationEvent[]',
+        description: 'Read one annotation\'s audit chain.',
+        parameters: [{ name: 'id', description: 'annotation id.' }],
+        returns: 'every audit row for the annotation in insertion order, which is causal order even for same-millisecond writes.',
+      },
+      {
+        signature: 'watch(timeoutMs: number): Promise<Annotation[]>',
+        description: 'Wait for the next new annotation, or for the timeout.',
+        parameters: [{ name: 'timeoutMs', description: 'upper bound in milliseconds, clamped to `[0, 60000]`.' }],
+        returns: 'the open annotations at wake time: the batch that includes the added annotation, or the current batch once the timeout elapses.',
+      },
+      {
+        signature: 'prune(olderThanMs: number): number',
+        description: 'Drop terminal annotations older than a cutoff.',
+        parameters: [{ name: 'olderThanMs', description: 'age in milliseconds; annotations whose last update is at or before `now - olderThanMs` are deleted with their audit rows.' }],
+        returns: 'the number of deleted annotations.',
+      },
+      {
+        signature: 'writeVerification(id: string, evidence: VerificationEvidence, source?: AuditSource): AnnotationEvent[]',
+        description: 'Replace the stored verification evidence for one annotation.',
+        parameters: [{ name: 'id', description: 'annotation id; an unknown id is an error.' }, { name: 'evidence', description: 'current snapshot; the previous payload stays in the audit chain.' }, { name: 'source', description: 'audit attribution tier; model consumers post as `model`.' }],
+        returns: 'the annotation\'s full audit chain after the write.',
+      },
+    ],
+  },
+  {
     key: 'permissionPresets',
     summary: 'Owns the deployment\'s configured permission presets, the fixed Auto integration hook, and their write path.',
     description: 'Owns the deployment\'s configured permission presets, the fixed Auto integration hook, and their write path. Requires a confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are reported as CUSTOM_PRESET, not an error.',
@@ -2131,6 +2210,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'options', description: 'optional cancellation.' }],
         returns: 'one snapshot per stored session.',
       },
+      {
+        signature: 'abstract delete(id: SessionId, options?: SessionPersistenceDeleteOptions): Promise<boolean>',
+        description: 'Durably delete one stored session and every record this backend keeps for it, so no later `stat`, `list`, or `open` observes it.\n\nA backend MUST first settle this process\'s own state for the id: open handles for it are closed before the bytes go (a write handle\'s close drains its routed buffer durably and gives up the id\'s live event route, so an event committed after the removal cannot recreate the artifact), and a created-but-unmaterialized registration is erased without ever reaching the medium. Callers that hold a handle for the id must treat it as closed: the session it addressed no longer exists.',
+        parameters: [{ name: 'id', description: 'the stored session to delete.' }, { name: 'options', description: 'optional cancellation.' }],
+        returns: '`true` when this backend held the session — a durable artifact, an open handle, or a created-but-unmaterialized registration — and `false` when it held none. The call is idempotent: a repeat, or a lost race with another remover, resolves `false` instead of failing.',
+      },
     ],
   },
   {
@@ -2161,6 +2246,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Durably checkpoint one live session NOW (all mandatory points call this; tests and carriers may too). The registry cut is snapshotted at this boundary (states are live references), then the session\'s record is replaced on the domain\'s write chain. NOT fail-soft — callers on the fail-soft paths contain it.',
         parameters: [{ name: 'session', description: 'the live session to checkpoint.' }],
         returns: 'resolution after durability and event emission.',
+      },
+      {
+        signature: 'async forget(id: SessionId): Promise<void>',
+        description: 'Drop one session\'s stored record and its write-behind bookkeeping, so a session deleted on the Host leaves no cache document behind and no armed trigger writes one back. The removal runs on the domain write chain like every other mutation here — durability first, then memory — and the bookkeeping is dropped synchronously before it, so a pending interval trigger cannot queue a replacement write while the removal is in flight. An id this cache does not hold is a no-op, and other sessions\' rows are untouched. NOT fail-soft — a caller whose own work already concluded contains the rejection.',
+        parameters: [{ name: 'id', description: 'the session whose cached record is dropped.' }],
+        returns: 'resolution after the domain applied the removal durably.',
       },
       {
         signature: 'coldSnapshot( meta: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[], ): ProjectionSnapshot',
@@ -3642,6 +3733,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the complete resulting archive set.',
       },
       {
+        signature: '@Remote(\'deleteSession\') deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue>',
+        description: 'Permanently delete one known Session\'s workspace accounting and durable records.',
+        parameters: [{ name: 'request', description: 'Session identity to delete.' }],
+        returns: 'deletion confirmation.',
+      },
+      {
         signature: '@Remote(\'pinSession\') pinSession(request: WorkspacePinSessionRequest): Promise<WorkspacePinValue>',
         description: 'Surface one known unarchived Session ahead of unpinned Sessions.',
         parameters: [{ name: 'request', description: 'Session identity to pin.' }],
@@ -3744,6 +3841,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'archiveSession(sessionId: SessionId, options: ArchiveSessionOptions = {}): Promise<void>',
         description: 'Archive one session durably. The session must exist (live or in session persistence); its workspace accounting — or lack of one — is irrelevant. Without `stopActivity` the session must also be inactive: the `workspace/session-activity` waterfall is asked once, and any reported activity rejects with WorkspaceActiveSessionError before anything is written. With `stopActivity` the archive is written without an activity check, and the `workspace/session-stop` providers are then asked to stop the session\'s work: the durable archive set is what a provider\'s `agent/pre-step` gate reads, so every wake the stops induce is already blocked. Archiving drops the session\'s pin in the same durable write (pinning and archival are mutually exclusive). An already archived id resolves without writing, asking, or stopping.',
         parameters: [{ name: 'sessionId', description: 'The session to archive.' }, { name: 'options', description: 'Whether running work is stopped instead of refusing.' }],
+        returns: 'resolution after durability and, with `stopActivity`, after every stop request was issued.',
+      },
+      {
+        signature: 'deleteSession(sessionId: SessionId, options: DeleteSessionOptions = {}): Promise<void>',
+        description: 'Permanently delete one session: its workspace accounting and its durable records. Unlike archiveSession, nothing about the session survives — it leaves every workspace\'s `sessionIds`, the archive set, and the pin set, the persistence backend removes the stored log, and the projection cache drops its derived row, so no bucket, no restart, and no stale cache document shows it again.\n\nThe session must exist (live or in session persistence); without `stopActivity` it must also be inactive, asked exactly as archiving asks: one `workspace/session-activity` waterfall, and any reported activity rejects with WorkspaceActiveSessionError before anything is written. With `stopActivity` the deletion skips the activity check, so the `workspace/session-stop` providers are asked to stop the session\'s work before its records are removed.',
+        parameters: [{ name: 'sessionId', description: 'The session to delete.' }, { name: 'options', description: 'Whether running work is stopped instead of refusing.' }],
         returns: 'resolution after durability and, with `stopActivity`, after every stop request was issued.',
       },
       {
@@ -4420,9 +4523,9 @@ export const EVENT_API: readonly EventApiEntry[] = [
     name: 'workspace/session-stop',
     mode: 'parallel',
     signature: '\'workspace/session-stop\'(request: SessionActivityRequest): Promise<void> | void',
-    summary: 'Stop a session\'s running work because the caller archived it with `stopActivity`; the archive set is durable when this dispatches.',
-    description: 'Stop a session\'s running work because the caller archived it with `stopActivity`; the archive set is durable when this dispatches. Each provider stops its own families — cancelling a turn, its subagent descendants, owned jobs, or active schedules — through the same cancel paths the user\'s own stop actions use, so the session log ends every open turn regularly and a later unarchive can continue the conversation. Listeners issue their stop requests without waiting for running work to settle; a listener may await its own durability barrier. A rejection is logged by the registry and does not undo the archive.',
-    parameters: [{ name: 'request', description: 'the session being archived.' }],
+    summary: 'Stop a session\'s running work because the caller archived it with `stopActivity`, or deleted it with the same option; the archive set or the removal is durable when this dispatches.',
+    description: 'Stop a session\'s running work because the caller archived it with `stopActivity`, or deleted it with the same option; the archive set or the removal is durable when this dispatches. Each provider stops its own families — cancelling a turn, its subagent descendants, owned jobs, or active schedules — through the same cancel paths the user\'s own stop actions use, so the session log ends every open turn regularly and a later unarchive can continue the conversation. Listeners issue their stop requests without waiting for running work to settle; a listener may await its own durability barrier. A rejection is logged by the registry and does not undo the archive or the deletion.',
+    parameters: [{ name: 'request', description: 'the session being archived or deleted.' }],
   },
 ]
 
@@ -4471,6 +4574,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AdapterRegistrationHandle',
     declaration: 'export interface AdapterRegistrationHandle {\n    (): void;\n    replace(providers: string[]): void;\n}',
+  },
+  {
+    name: 'AddAnnotationInput',
+    declaration: 'export interface AddAnnotationInput {\n    sessionId?: string;\n    origin: string;\n    url: string;\n    comment: string;\n    element?: string;\n    elementPath?: string;\n    cssClasses?: string;\n    pathMatchCount?: number;\n    pathMatchesTarget?: boolean;\n    stableSelector?: string;\n    columnHeader?: string;\n    rowKey?: string;\n    reactKeyPath?: string[];\n    scroll?: {\n        x: number;\n        y: number;\n    };\n    viewport?: {\n        width: number;\n        height: number;\n    };\n}',
   },
   {
     name: 'AdmittedPromptContentPart',
@@ -4539,6 +4646,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentStatus',
     declaration: 'export type AgentStatus = \'idle\' | \'running\';',
+  },
+  {
+    name: 'Annotation',
+    declaration: 'export interface Annotation {\n    id: string;\n    sessionId: string;\n    origin: string;\n    url: string;\n    comment: string;\n    element: string;\n    elementPath: string;\n    cssClasses: string;\n    pathMatchCount?: number;\n    pathMatchesTarget?: boolean;\n    stableSelector?: string;\n    columnHeader?: string;\n    rowKey?: string;\n    reactKeyPath?: string[];\n    scroll?: {\n        x: number;\n        y: number;\n    };\n    viewport?: {\n        width: number;\n        height: number;\n    };\n    status: AnnotationStatus;\n    reply: string | null;\n    createdAt: number;\n    updatedAt: number;\n}',
+  },
+  {
+    name: 'AnnotationEvent',
+    declaration: 'export interface AnnotationEvent {\n    id: string;\n    annotationId: string;\n    kind: AnnotationEventKind;\n    from: string | null;\n    to: string | null;\n    source: AuditSource;\n    at: number;\n}',
+  },
+  {
+    name: 'AnnotationEventKind',
+    declaration: 'export type AnnotationEventKind = \'created\' | \'status_changed\' | \'reply_written\' | \'verification_written\';',
+  },
+  {
+    name: 'AnnotationStatus',
+    declaration: 'export type AnnotationStatus = (typeof ANNOTATION_STATUSES)[number];',
   },
   {
     name: 'AnyHook',
@@ -4659,6 +4782,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AttachmentId',
     declaration: 'export type AttachmentId = Branded<\'AttachmentId\'>;',
+  },
+  {
+    name: 'AuditSource',
+    declaration: 'export type AuditSource = \'browser\' | \'cli\' | \'model\';',
   },
   {
     name: 'AuthorizationEntry',
@@ -4851,6 +4978,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ConfinedSandboxMode',
     declaration: 'export type ConfinedSandboxMode = Exclude<SandboxMode, \'danger-full-access\'>;',
+  },
+  {
+    name: 'ConnectionAccountHeaders',
+    declaration: 'export interface ConnectionAccountHeaders {\n    readonly cookie?: string | undefined;\n    readonly host?: string | undefined;\n}',
+  },
+  {
+    name: 'ConnectionAccountResolver',
+    declaration: 'export type ConnectionAccountResolver = (headers: ConnectionAccountHeaders) => string | null | Promise<string | null>;',
   },
   {
     name: 'ConnectionFetchHandler',
@@ -5081,6 +5216,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type DeepSeekLlmApiJson = null | boolean | number | string | DeepSeekLlmApiJson[] | {\n    [key: string]: DeepSeekLlmApiJson;\n};',
   },
   {
+    name: 'DeleteSessionOptions',
+    declaration: 'export interface DeleteSessionOptions {\n    readonly stopActivity?: boolean;\n}',
+  },
+  {
     name: 'DeliveryRetentionBounds',
     declaration: 'export interface DeliveryRetentionBounds {\n    readonly days: number;\n    readonly records: number;\n}',
   },
@@ -5102,7 +5241,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DirectoryListing',
-    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n}',
+    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n    lockedRoot?: {\n        readonly path: string;\n        readonly note: string;\n    };\n}',
   },
   {
     name: 'DirectoryPickerBrowseCapability',
@@ -5227,6 +5366,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'FeedbackCategory',
     declaration: 'export type FeedbackCategory = \'task-result\' | \'instruction-following\' | \'product-interaction\' | \'service-stability\' | \'resource-cost\' | \'security-privacy-permission\' | \'other\';',
+  },
+  {
+    name: 'FeedbackSession',
+    declaration: 'export interface FeedbackSession {\n    id: string;\n    origin: string;\n    url: string;\n    createdAt: number;\n}',
   },
   {
     name: 'FiberState',
@@ -6869,6 +7012,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionPersistenceCreateOptions {\n    readonly signal?: AbortSignal;\n    readonly inheritedEventCount?: SessionLogOffset;\n}',
   },
   {
+    name: 'SessionPersistenceDeleteOptions',
+    declaration: 'export interface SessionPersistenceDeleteOptions {\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
     name: 'SessionPersistenceListOptions',
     declaration: 'export interface SessionPersistenceListOptions {\n    readonly signal?: AbortSignal;\n}',
   },
@@ -8081,6 +8228,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface UserMessage extends MessageBase {\n    readonly role: \'user\';\n}',
   },
   {
+    name: 'VerificationEvidence',
+    declaration: 'export interface VerificationEvidence {\n    mode: \'capture\' | \'prototype\';\n    evidenceDir: string;\n    files: string[];\n    exitCode: number;\n    element?: {\n        found: boolean;\n        rect: {\n            x: number;\n            y: number;\n            width: number;\n            height: number;\n        } | null;\n        screenshot: string | null;\n        error?: string;\n        matches?: number;\n        matchedBy?: string;\n        boundaryBroken?: boolean;\n    };\n    anomalies: string[];\n}',
+  },
+  {
     name: 'VerifiedWebhookDelivery',
     declaration: 'export interface VerifiedWebhookDelivery<K extends string = string> {\n    readonly kind: K;\n    readonly source: WebhookSourceId;\n    readonly deliveryId: WebhookDeliveryId;\n    readonly event: WebhookEventOf<K>;\n    readonly receivedAt: number;\n}',
   },
@@ -8299,6 +8450,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorkspaceDeleteRequest',
     declaration: 'export interface WorkspaceDeleteRequest {\n    readonly workspaceId: WorkspaceId;\n}',
+  },
+  {
+    name: 'WorkspaceDeleteSessionRequest',
+    declaration: 'export interface WorkspaceDeleteSessionRequest {\n    readonly sessionId: SessionId;\n    readonly stopActivity?: boolean;\n}',
+  },
+  {
+    name: 'WorkspaceDeleteSessionValue',
+    declaration: 'export interface WorkspaceDeleteSessionValue {\n    readonly deleted: true;\n}',
   },
   {
     name: 'WorkspaceDeleteValue',
