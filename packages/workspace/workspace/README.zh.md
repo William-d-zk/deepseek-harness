@@ -110,7 +110,6 @@ ctx.workspaceRegistry.list() // shows the project, newest first
 | [`src/spec.ts`](src/spec.ts) | 领域声明：记录 schema、注册表状态、`defineDomain` 规范 |
 | [`src/types.ts`](src/types.ts) | 公开 `Workspace` 接口与 `WorkspaceId` 品牌 |
 | [`src/paths.ts`](src/paths.ts) | `realpath` 唯一性规范 |
-| [`src/invariant.ts`](src/invariant.ts) | 不变式伴生插件：实体缓存镜像持久表 |
 
 ### 持久形态
 

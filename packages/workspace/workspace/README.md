@@ -109,7 +109,6 @@ Archive admission is a capability seam over two Host events this package declare
 | [`src/spec.ts`](src/spec.ts) | Domain declaration: record schema, registry state, `defineDomain` spec |
 | [`src/types.ts`](src/types.ts) | Public `Workspace` interface and `WorkspaceId` brand |
 | [`src/paths.ts`](src/paths.ts) | The `realpath` uniqueness canon |
-| [`src/invariant.ts`](src/invariant.ts) | Invariant companion: the entity cache mirrors the durable table |
 
 ### Durable shape
 
