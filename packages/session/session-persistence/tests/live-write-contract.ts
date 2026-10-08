@@ -178,12 +178,15 @@ export function runLiveWritePathContract(
       if (session === undefined) throw new Error('session was not created')
       const handle = await ctx.sessionPersistence.create(session.header)
       const warned = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
-      vi.spyOn(handle, 'close').mockRejectedValue(new Error('drain exploded'))
+      vi.spyOn(handle, 'close').mockRejectedValueOnce(new Error('drain exploded'))
       session.append('turn/start', { turn: 1 })
       await owner.dispose()
       await vi.waitFor(() => {
         expect(warned.mock.calls.join('\n')).toContain('final drain for session "disposed-drain-fails" failed')
       })
+      // The one-shot stub skipped close's real release path; closing again releases the
+      // kernel lock instead of leaving the descriptor to the garbage collector.
+      await handle.close().catch(() => undefined)
       warned.mockRestore()
       await ctx.fiber.dispose()
     })
