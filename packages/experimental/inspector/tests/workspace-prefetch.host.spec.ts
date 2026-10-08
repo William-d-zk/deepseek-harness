@@ -22,7 +22,7 @@ it('pins the npm source and uses workspace Vite without a webpack dependency', (
   const dependencies = manifest('../package.json').devDependencies
   expect(dependencies?.['chrome-devtools-frontend']).toBe('1.0.1638082')
   expect(dependencies?.vite).toBeUndefined()
-  expect(manifest('../../../../package.json').devDependencies?.vite).toBe('8.0.16')
+  expect(manifest('../../../../package.json').devDependencies?.vite).toMatch(/^\^?8\./) // the fork converges on the Vite 8 line; vitest 5 needs Vite 7+ module-runner semantics
   expect(Object.keys(dependencies ?? {}).some(name => name.includes('webpack'))).toBe(false)
 })
 
