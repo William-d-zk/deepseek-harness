@@ -1,6 +1,7 @@
 /**
  * Install packed tarballs into a throwaway consumer outside the repository and
- * drive the installed executable with plain Node.
+ * drive the installed executable with plain Node. Its npm cache belongs to that
+ * consumer and is removed with it on normal completion or failure.
  *
  * Every tarball the installed tree needs comes from `--from`, so the only
  * registry traffic is for external dependencies. That matters beyond hermetic
@@ -105,7 +106,9 @@ function main(): void {
     // that cannot install them must still start — which is what optional means
     // here. Their entry package is a plain dependency of dsh-sandbox-local, so
     // its tarball is supplied through --from.
-    capture('npm', ['install', '--no-audit', '--no-fund', '--package-lock=false', '--omit=optional', '--loglevel=http'],
+    // npm 12 skips dependency lifecycle scripts unless they are approved; this throwaway
+    // consumer verifies the real install flow, scripts included.
+    capture('npm', ['install', '--dangerously-allow-all-scripts', '--cache', join(consumerRoot, '.npm-cache'), '--no-audit', '--no-fund', '--package-lock=false', '--omit=optional', '--loglevel=http'],
       { cwd: consumerRoot, env: environment })
 
     const installedEntry = join(consumerRoot, 'node_modules', entry.packageName)

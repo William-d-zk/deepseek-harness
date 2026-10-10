@@ -5,32 +5,11 @@ import { isAlias, isMap, isNode, isScalar, parseDocument, visit } from 'yaml'
 import { ManagementFailure } from './failure.ts'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 
-/** Value pnpm 11 writes for an undecided entry in allowBuilds. */
-const UNDECIDED = 'set this to true or false'
+/** Value pnpm leaves for a build script that still needs a decision. */
+const UNDECIDED_BUILD = 'set this to true or false'
 
-/** Manifest pnpm 12 records the builds it ignored in, relative to the profile directory. */
-const IGNORED_BUILDS_FILE = join('node_modules', '.modules.yaml')
-
-/** Read the exact build identifiers pnpm 12 left undecided in the profile's package manifest.
- * @param dir Current profile directory.
- * @returns Identifiers such as `esbuild@0.25.0` or `addon@file:./addon`; empty when pnpm ignored nothing.
- */
-async function readIgnoredBuilds(dir: string): Promise<string[]> {
-  let text: string
-  try { text = await readFile(join(dir, IGNORED_BUILDS_FILE), 'utf8') }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    return []
-  }
-  // pnpm writes this file as JSON despite its .yaml extension. A manifest it cannot parse
-  // is not a reason to lose the install diagnostic the caller already holds.
-  let parsed: unknown
-  try { parsed = JSON.parse(text) }
-  catch { return [] }
-  if (typeof parsed !== 'object' || parsed === null) return []
-  const ignored: unknown = Reflect.get(parsed, 'ignoredBuilds')
-  return Array.isArray(ignored) ? ignored.filter((entry): entry is string => typeof entry === 'string') : []
-}
+/** Where a non-interactive run names the build scripts it skipped. */
+const IGNORED_BUILDS = /\bIgnored build scripts: (.+)/
 
 async function readPolicy(dir: string) {
   let text: string
@@ -49,42 +28,49 @@ async function readPolicy(dir: string) {
       throw new Error('allowBuilds must not contain YAML anchors or aliases')
     }
   })
-  // pnpm 11 leaves an undecided package in allowBuilds under its bare name, while pnpm 12
-  // writes nothing there and records the identifier it ignored in the package manifest.
-  const undecided = isMap(builds) ? builds.items.flatMap(({ key, value }) =>
+  const keys = isMap(builds) ? builds.items.flatMap(({ key }) =>
+    isScalar(key) && typeof key.value === 'string' ? [key.value] : []) : []
+  const pending = isMap(builds) ? builds.items.flatMap(({ key, value }) =>
     isScalar(key) && typeof key.value === 'string' && !/[*?]/.test(key.value)
-      && isScalar(value) && value.value === UNDECIDED ? [key.value] : []) : []
-  const decided = (identifier: string): boolean => {
-    if (!isMap(builds)) return false
-    // A decision names either the exact identifier pnpm recorded or — for registry packages
-    // only — the bare name, which never identifies a file:, git: or tarball artifact.
-    if (builds.has(identifier)) return true
-    const separator = identifier.lastIndexOf('@')
-    if (separator <= 0) return false
-    return /^[\dv^~><=*]/.test(identifier.slice(separator + 1)) && builds.has(identifier.slice(0, separator))
-  }
-  const ignored = (await readIgnoredBuilds(dir)).filter(identifier => !decided(identifier))
-  return { document, pending: [...new Set([...undecided, ...ignored])] }
+      && isScalar(value) && value.value === UNDECIDED_BUILD ? [key.value] : []) : []
+  return { document, pending, keys }
 }
 
-/** Read the build identifiers pnpm left undecided.
+/**
+ * Record the build scripts a failed run reported as ignored, then list every name awaiting a decision.
  *
- * pnpm 12 records them under `ignoredBuilds` in the profile's own modules manifest, so they are
- * only readable while node_modules exists; the identifiers are exactly what allowBuilds must key
- * on, which makes them specific to the recorded resolution — a moved profile or an updated
- * dependency reports pending again and needs a fresh decision. pnpm 11 instead leaves a
- * placeholder in pnpm-workspace.yaml, which survives installation cleanup.
+ * pnpm writes those policy entries itself only when it can prompt, and the
+ * manager always runs it non-interactively, so the run's own report is the
+ * record that survives.
  * @param dir Current profile directory.
- * @returns Exact identifiers awaiting a build decision; wildcard rules are excluded.
+ * @param output Captured output of the failed run.
+ * @returns Exact package names awaiting a build decision; wildcard rules are excluded.
  */
-export async function readPendingBuilds(dir: string): Promise<string[]> {
-  return (await readPolicy(dir)).pending
+export async function recordPendingBuilds(dir: string, output: string): Promise<string[]> {
+  const { document, pending, keys } = await readPolicy(dir)
+  const known = new Set(keys)
+  const added = ignoredBuildNames(output).filter(name => !known.has(name))
+  if (added.length === 0) return pending
+  for (const name of added) document.setIn(['allowBuilds', name], UNDECIDED_BUILD)
+  await writeFileAtomic(join(dir, 'pnpm-workspace.yaml'), String(document), { mode: 0o600 })
+  return [...pending, ...added]
+}
+
+/**
+ * Read the package names a pnpm run reported as ignored build scripts.
+ * @param output Captured output of the run.
+ * @returns Exact names in report order; wildcard patterns are excluded.
+ */
+export function ignoredBuildNames(output: string): string[] {
+  const reported = IGNORED_BUILDS.exec(output)?.[1]
+  if (reported === undefined) return []
+  return reported.split(',').map(name => name.trim()).filter(name => name !== '' && !/[*?]/.test(name))
 }
 
 /** Persist approval without running scripts; the caller holds the profile manifest lock.
  * @param dir Current profile directory.
- * @param names Exact identifiers from the pending build list.
- * @throws If an identifier is no longer pending or allowBuilds contains YAML anchors or aliases; no approvals are written.
+ * @param names Explicit package names from the pending build list.
+ * @throws If a name is no longer pending or allowBuilds contains YAML anchors or aliases; no approvals are written.
  */
 export async function approveBuilds(dir: string, names: readonly string[]): Promise<void> {
   const { document, pending } = await readPolicy(dir)

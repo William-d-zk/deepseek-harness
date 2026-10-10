@@ -116,9 +116,12 @@ export function pnpmCommand(): readonly [command: string, ...args: string[]] {
   const execpath = process.env.npm_execpath
   // `npm run` and `yarn run` set this too, and handing pnpm's arguments to either would write a different lockfile.
   if (execpath !== undefined && /[\\/]pnpm[\\/]/u.test(execpath) && /\.[cm]?js$/u.test(execpath)) return [process.execPath, execpath]
+  // pnpm 12 ships `bin/pnpm.mjs`; pnpm 11 shipped `bin/pnpm.cjs`.
   for (let directory = dirname(fileURLToPath(import.meta.url)); ; directory = dirname(directory)) {
-    const entry = join(directory, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')
-    if (existsSync(entry)) return [process.execPath, entry]
+    for (const filename of ['pnpm.mjs', 'pnpm.cjs']) {
+      const entry = join(directory, 'node_modules', 'pnpm', 'bin', filename)
+      if (existsSync(entry)) return [process.execPath, entry]
+    }
     if (dirname(directory) === directory) break
   }
   // Windows resolves a bare `pnpm` to a batch shim that spawnSync cannot start, so say that rather than fail later.
