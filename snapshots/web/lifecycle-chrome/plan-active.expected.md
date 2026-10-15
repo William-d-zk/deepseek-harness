@@ -12,7 +12,7 @@
 - tree "Sessions":
   - treeitem "workspace" [expanded]
   - treeitem "New Session" [selected]
-- button "Settings"
+- button "Account menu": More
 - banner:
   - button "Open right sidebar"
 - text: From dialogue to enterprise apps Preview

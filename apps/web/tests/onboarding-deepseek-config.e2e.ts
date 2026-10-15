@@ -1,7 +1,7 @@
 // Keyless browser e2e: the shipped DeepSeek adapter stays mounted while its
-// credential is absent, the first-run step owns the shipped modal chrome, and
-// the inline key write lands in an isolated harness home without a reload or
-// model call.
+// credential is absent, both ordered steps share the shipped modal chrome,
+// and the inline key write lands in an isolated harness home without a reload
+// or model call.
 import { randomBytes } from 'node:crypto'
 import { assertModelInputLayout } from './model-input-layout.ts'
 import { readFile } from 'node:fs/promises'
@@ -18,6 +18,7 @@ import {
 import { openSettings, ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/onboarding-deepseek-config', import.meta.url))
+const SIGN_IN_EXPECTED = join(SNAPSHOT_DIR, 'sign-in.expected.md')
 const MISSING_EXPECTED = join(SNAPSHOT_DIR, 'missing.expected.md')
 const MODELS_EXPECTED = join(SNAPSHOT_DIR, 'models.expected.md')
 const DEFAULT_MODELS_EXPECTED = join(SNAPSHOT_DIR, 'default-models.expected.md')
@@ -48,13 +49,15 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
 
   it('stores a key write-only and observes configured state without restarting', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-onboarding-deepseek-config'))
-    // The first-run step owns the takeover chrome: the shipped modal keeps the
-    // application root inert for as long as the credential is absent.
+    // The first-run sign-in step owns the takeover chrome: the shipped modal
+    // keeps the application root inert for as long as the credential is absent.
+    const signIn = page.getByRole('dialog', { name: '开始使用', exact: true })
+    await signIn.waitFor({ timeout: 15_000 })
+    await compareOrRefreshGolden(SIGN_IN_EXPECTED,
+      await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd), MODE)
+    await signIn.getByRole('button', { name: '添加 API Key', exact: true }).click()
     const credentialStep = page.getByRole('dialog', { name: '添加一个 API Key 开始使用' })
     await credentialStep.waitFor({ timeout: 15_000 })
-    expect(await page.locator('#root').evaluate(root => (root as HTMLElement).inert)).toBe(true)
-    expect(await page.getByRole('dialog', { name: '开始你的创作' }).count()).toBe(0)
-    expect(await page.getByRole('button', { name: '账号菜单', exact: true }).count()).toBe(0)
     const keyInput = credentialStep.getByLabel('API 密钥', { exact: true })
     await keyInput.waitFor({ timeout: 10_000 })
     const initial = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
@@ -71,7 +74,6 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     expect((await page.content()).includes(secret)).toBe(false)
     expect((await page.locator('body').ariaSnapshot()).includes(secret)).toBe(false)
     expect(browserConsole.some(line => line.includes(secret))).toBe(false)
-
 
     // The ordinary Models surface reuses the refreshed join and exposes the
     // configured write-only placeholder without a reload.
@@ -93,10 +95,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     await page.reload({ waitUntil: 'load' })
     acknowledgeReloadConnectionLoss(tripwire, secondReloadWarnings)
     await page.waitForSelector('[class*="frame"]', { timeout: 15_000 })
-    // The completed step stays complete across the reload: onboarding decides
-    // from the live provider/credential join, not from a process-local flag.
     expect(await page.getByRole('dialog', { name: '添加一个 API Key 开始使用' }).count()).toBe(0)
-    expect(await page.locator('#root').evaluate(root => (root as HTMLElement).inert)).toBe(false)
 
     expect((await page.content()).includes(secret)).toBe(false)
     expect((await page.locator('body').ariaSnapshot()).includes(secret)).toBe(false)
@@ -107,9 +106,9 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
 
   it('never paints the takeover chrome on a configured reload, even with the settings join held open', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-onboarding-configured-reload'))
-    // Regression pin for the reload flash: the step is satisfied, yet it must
-    // load private facts before deciding not to show. Dialog chrome lives
-    // inside the visible branch, so the deciding window paints and blocks
+    // Regression pin for the reload flash: both steps are satisfied, yet each
+    // must load private facts before deciding not to show. Dialog chrome lives
+    // inside each visible branch, so the deciding window paints and blocks
     // nothing. Holding settings/describe widens that window from loopback
     // RTT scale to a deterministic hundreds of milliseconds, removing all
     // timing dependence from the sampler assertions below.
@@ -123,7 +122,8 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
       ;(window as unknown as { __takeoverSightings: string[] }).__takeoverSightings = sightings
       setInterval(() => {
         if (document.querySelector(
-          '[role="dialog"][aria-label="添加一个 API Key 开始使用"]',
+          '[role="dialog"][aria-label="开始使用"], '
+          + '[role="dialog"][aria-label="添加一个 API Key 开始使用"]',
         ) !== null) {
           sightings.push('chrome')
         }
@@ -146,7 +146,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     const warningsBefore = tripwire.warnings.length
     await page.reload({ waitUntil: 'commit' })
     await page.waitForSelector('[class*="frame"]', { timeout: 15_000 })
-    // The app is painted and interactive while the step is still deciding.
+    // The app is painted and interactive while the steps are still deciding.
     await page.waitForTimeout(600)
     releaseDescribe()
     await page.waitForTimeout(400)
@@ -271,7 +271,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
   it('keeps the fixture inventory closed', async () => {
     await assertFixtureInventory(
       SNAPSHOT_DIR,
-      ['missing.expected.md', 'models.expected.md', 'default-models.expected.md', 'empty.expected.md'],
+      ['sign-in.expected.md', 'missing.expected.md', 'models.expected.md', 'default-models.expected.md', 'empty.expected.md'],
     )
   })
 })

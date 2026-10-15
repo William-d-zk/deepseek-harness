@@ -88,11 +88,11 @@ describe('CI workflow', () => {
     const scripts = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
     expect(scripts.scripts['build:lib:host']).toContain('tsc -b tsconfig.host.json')
     expect(scripts.scripts['build:lib:client']).toContain('tsc -b tsconfig.client.json')
-    expect(scripts.scripts.typecheck).toBe('npm run build:lib:host && npm run typecheck:contracts-ready')
+    expect(scripts.scripts.typecheck).toBe('tsx scripts/build.ts --scope typecheck')
   })
 
   it('selects artifact builds only for PR release and API rehearsals', () => {
-    const official = "${{ github.event_name == 'pull_request' && 'pnpm run build --artifacts-only --profile official' || 'pnpm run build:official' }}"
+    const official = "${{ github.event_name == 'pull_request' && 'pnpm run build:artifacts --profile official' || 'pnpm run build:official' }}"
     const vendor = "${{ github.event_name == 'pull_request' && 'pnpm exec tsx scripts/compile-referenced-projects.ts host-libraries' || 'pnpm run build:lib:host' }}"
     for (const [file, jobName, expected] of [
       ['release.yml', 'pack', official],
@@ -102,7 +102,7 @@ describe('CI workflow', () => {
       const job = workflowJob(loadWorkflow('.github/workflows/' + file), jobName)
       if (!Array.isArray(job.steps)) throw new TypeError(`${jobName} must define steps`)
       const step = job.steps.filter(isRecord).find(candidate => typeof candidate.run === 'string'
-        && (candidate.run.includes('--artifacts-only') || candidate.run.includes('host-libraries')))
+        && (candidate.run.includes('build:artifacts') || candidate.run.includes('host-libraries')))
       expect(step?.run).toBe(expected)
       for (const event of ['pull_request', 'push', 'workflow_dispatch']) {
         const expression = expected.slice('${{ '.length, -' }}'.length)
@@ -110,7 +110,7 @@ describe('CI workflow', () => {
         expect(selected).toBe(event === 'pull_request'
           ? file === 'release-vendor.yml'
             ? 'pnpm exec tsx scripts/compile-referenced-projects.ts host-libraries'
-            : 'pnpm run build --artifacts-only --profile official'
+            : 'pnpm run build:artifacts --profile official'
           : file === 'release-vendor.yml' ? 'pnpm run build:lib:host' : 'pnpm run build:official')
       }
     }
@@ -121,20 +121,20 @@ describe('CI workflow', () => {
     if (!Array.isArray(job.steps)) throw new TypeError('Python runtime builder must define steps')
     const steps = job.steps.filter(isRecord)
     const execute = steps.find(step => step.name === 'Build single-exe')
-    expect(steps.some(step => step.run === 'pnpm run build --artifacts-only')).toBe(false)
+    expect(steps.some(step => step.run === 'pnpm run build:artifacts')).toBe(false)
     expect(execute).toMatchObject({
       env: { DSH_BUILD_CLIENT_PROFILE: 'official' },
     })
     if (typeof execute?.run !== 'string') throw new TypeError('Python executable builder must define a command')
     const expression = [...execute.run.matchAll(/\$\{\{ ([^{}]+) \}\}/g)]
       .map(match => match[1]).find(value => value?.startsWith('inputs.ci'))
-    expect(expression).toBe("inputs.ci && github.event_name == 'pull_request' && '--artifacts-only' || ''")
+    expect(expression).toBe("inputs.ci && github.event_name == 'pull_request' && '--build-artifacts' || ''")
     if (expression === undefined) throw new TypeError('Python executable builder must select its build mode')
     for (const ci of [false, true]) {
       for (const event of ['pull_request', 'push', 'workflow_dispatch']) {
         const context = { inputs: { ci }, github: { event_name: event } }
         const selected: unknown = runInNewContext(expression, context, { timeout: 1000 })
-        expect(selected).toBe(ci && event === 'pull_request' ? '--artifacts-only' : '')
+        expect(selected).toBe(ci && event === 'pull_request' ? '--build-artifacts' : '')
       }
     }
   })
@@ -323,10 +323,10 @@ describe('CI workflow', () => {
     const windowsCoverage = workflow.jobs['windows-coverage']
     const windowsNativeTests = workflow.jobs['windows-native-tests']
     const serialWindows = masterWorkflow.jobs['serial-windows']
-    const node26 = workflow.jobs['node-26']
-    const node26Coverage = workflow.jobs['node-26-coverage']
-    const node26Bench = workflow.jobs['node-26-bench']
-    const node26Consumers = workflow.jobs['node-26-consumers']
+    const node24 = workflow.jobs['node-26']
+    const node24Coverage = workflow.jobs['node-26-coverage']
+    const node24Bench = workflow.jobs['node-26-bench']
+    const node24Consumers = workflow.jobs['node-26-consumers']
     const nodeCompat = workflow.jobs['node-compat']
     const aggregate = workflow.jobs['all-checks-passed']
     if (!Array.isArray(aggregate.needs)) {
@@ -477,14 +477,14 @@ describe('CI workflow', () => {
     // The benchmark lane is a required verdict input and runs alone so its
     // wall-clock budgets never share a runner with a concurrent aggregate.
     expect(aggregate.needs).toContain('node-26-bench')
-    expect(node26Bench.name).toBe('node 26 / benchmarks')
-    expect(node26Bench.env).toBeUndefined()
-    expect(node26Bench.steps).toContainEqual({
+    expect(node24Bench.name).toBe('node 26 / benchmarks')
+    expect(node24Bench.env).toBeUndefined()
+    expect(node24Bench.steps).toContainEqual({
       name: 'Install benchmark browser and hosted dependencies',
       run: 'pnpm --filter @deepseek-ai/dsh-benchmarks exec playwright install --with-deps chromium',
     })
-    expect(JSON.stringify(node26Bench.steps)).not.toContain('DSH_CI_FAILOVER_LINUX')
-    expect(node26Bench.steps).toContainEqual({
+    expect(JSON.stringify(node24Bench.steps)).not.toContain('DSH_CI_FAILOVER_LINUX')
+    expect(node24Bench.steps).toContainEqual({
       name: 'Run performance benchmarks',
       env: { DSH_GATE_VERBOSE: '1' },
       run: 'pnpm run check:ci:bench',
@@ -497,7 +497,7 @@ describe('CI workflow', () => {
     // Linux failover is a separate switch: the three enterprise Linux workers
     // and the verdict job resolve their pool through DSH_CI_FAILOVER_LINUX,
     // never the Windows switch.
-    for (const [jobName, job] of [['node-26', node26], ['node-26-coverage', node26Coverage], ['node-26-consumers', node26Consumers]] as const) {
+    for (const [jobName, job] of [['node-26', node24], ['node-26-coverage', node24Coverage], ['node-26-consumers', node24Consumers]] as const) {
       expect(typeof job['runs-on']).toBe('string')
       expect(job['runs-on'], `${jobName} runs-on must use the Linux failover switch`).toContain('DSH_CI_FAILOVER_LINUX')
       expect(job['runs-on'], `${jobName} runs-on must not use the Windows failover switch`).not.toContain('DSH_CI_FAILOVER_WINDOWS')
@@ -514,7 +514,7 @@ describe('CI workflow', () => {
     // blacksmith branch is standalone: it must not fall through to the
     // self-hosted pool when the two values are mutually exclusive.
     const selectors = {
-      linux: node26['runs-on'] as string,
+      linux: node24['runs-on'] as string,
       linuxAggregate: aggregate['runs-on'] as string,
       windows: windowsBuild['runs-on'] as string,
     }
@@ -544,7 +544,7 @@ describe('CI workflow', () => {
     // a red aggregate does not keep burning runner time on the remaining
     // gates. Removing the flag silently reverts to running every independent
     // gate to completion.
-    for (const [jobName, job] of [['node-26', node26], ['node-26-coverage', node26Coverage], ['node-26-consumers', node26Consumers], ['node-compat', nodeCompat]] as const) {
+    for (const [jobName, job] of [['node-26', node24], ['node-26-coverage', node24Coverage], ['node-26-consumers', node24Consumers], ['node-compat', nodeCompat]] as const) {
       expect(job.env, `${jobName} must enable fail-fast`).toMatchObject({ DSH_GATE_FAIL_FAST: '1' })
     }
 
@@ -929,19 +929,19 @@ describe('Runtime and LLM e2e Blacksmith routing', () => {
   it('keeps native release and dispatch builders hosted while routing x64 CI by platform', () => {
     const workflow = loadWorkflow('.github/workflows/build-exe-for-python-sdk.yml')
     const build = workflowJob(workflow, 'build')
-    for (const [target, runner, variable, blacksmith] of [
-      ['node26-linux-x64', 'ubuntu-latest', 'DSH_CI_FAILOVER_LINUX', 'blacksmith-2vcpu-ubuntu-2404'],
-      ['node26-win-x64', 'windows-2025', 'DSH_CI_FAILOVER_WINDOWS', 'blacksmith-2vcpu-windows-2025'],
-      ['node26-linux-arm64', 'ubuntu-24.04-arm', 'DSH_CI_FAILOVER_LINUX', 'ubuntu-24.04-arm'],
-      ['node26-macos-arm64', 'macos-latest', 'DSH_CI_FAILOVER_LINUX', 'macos-latest'],
-      ['node26-macos-x64', 'macos-15-intel', 'DSH_CI_FAILOVER_LINUX', 'macos-15-intel'],
+    for (const [target, runner, variable, blacksmith, releaseRunner] of [
+      ['node26-linux-x64', 'ubuntu-latest', 'DSH_CI_FAILOVER_LINUX', 'blacksmith-2vcpu-ubuntu-2404', 'ubuntu-latest'],
+      ['node26-win-x64', 'windows-2025', 'DSH_CI_FAILOVER_WINDOWS', 'blacksmith-2vcpu-windows-2025', 'windows-2025'],
+      ['node26-linux-arm64', 'ubuntu-24.04-arm', 'DSH_CI_FAILOVER_LINUX', 'ubuntu-24.04-arm', 'ubuntu-24.04-arm'],
+      ['node26-macos-arm64', 'macos-latest', 'DSH_CI_FAILOVER_LINUX', 'macos-latest', 'macos-15-xlarge'],
+      ['node26-macos-x64', 'macos-15-intel', 'DSH_CI_FAILOVER_LINUX', 'macos-15-intel', 'macos-15-large'],
     ] as const) {
       for (const ci of [false, true]) {
         for (const release of [false, true]) {
           for (const mode of ['', 'selfhosted', 'unexpected', 'blacksmith']) {
             const vars = { DSH_CI_FAILOVER_LINUX: 'blacksmith', DSH_CI_FAILOVER_WINDOWS: 'blacksmith', [variable]: mode }
             expect(evaluateRunsOn(build['runs-on'], { inputs: { ci, release }, vars, matrix: { target, runner } }), `${target} ci=${ci} release=${release} mode=${mode}`)
-              .toBe(ci && !release && mode === 'blacksmith' ? blacksmith : runner)
+              .toBe(release ? releaseRunner : ci && mode === 'blacksmith' ? blacksmith : runner)
           }
         }
       }

@@ -54,10 +54,11 @@ readlink packages/client/ui-agent-preset/node_modules/react   # 应指向本仓 
 
 ```sh
 node_modules/.bin/tsx scripts/gen-third-party-notices.ts   # lockfile/manifest 变动后确认通知文件无漂移
-pnpm run hygiene                                            # lockfile 一致时可直接跑；21 项左右应全绿
+pnpm run build                                             # hygiene 的 publint 会校验 tsdown 产物（gateway ./client 拆 node/browser 后必建）
+pnpm run hygiene                                           # lockfile 一致时可直接跑；21 项左右应全绿
 env -u CI pnpm run test                                     # 全量单测；负载下少量 watcher/超时类用例会抖，单独复跑确认为准
 git push fork-ssh Alioth                                    # pre-push 钩子会跑 typecheck，lockfile 一致时可通过，不要用 LEFTHOOK=0 绕过
 timeout 25 git ls-remote fork refs/heads/Alioth             # 内网镜像只读但会自 GitHub 拉取，约 10 分钟内跟上
 ```
 
-残余失败判据（2026-09-24 基线）：`plugin-manager` 3 个真实 GitHub SSH 安装测试在本机不可达；`hmr`/`skill-office`/`ptc-runtime-python`/`session-snapshot` 少数用例在全量并行下超时，单独复跑全过。
+残余失败判据（2026-09-24 基线）：`plugin-manager` 3 个真实 GitHub SSH 安装测试在本机不可达；`hmr`/`skill-office`/`ptc-runtime-python`/`session-snapshot` 少数用例在全量并行下超时，单独复跑全过。Node 26.10.0 工具链（fork 8c6e7f7fe5）另引入一个与合并无关的确定性失败：`session-persistence-jsonl/tests/generation.spec.ts` 的 "accepts a valid append on a zstd target created by another migration"——`node:zlib` 的 zstd 帧字节随 Node 版本变化，上游 CI（Node 24）全绿，本机单跑也挂，合并前 HEAD 同样挂（2026-10-16 复核）。
