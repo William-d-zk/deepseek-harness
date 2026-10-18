@@ -1,6 +1,6 @@
 ---
 name: harness-alioth-upstream-merge
-description: 在 deepseek-harness 的 Alioth fork 分支上定期合并上游 master 并推送到 fork 时使用：合并后门禁债务（casts 基线/ rescope 跳过/fork 包版本）、lockfile 刷新取舍、CI=true 下 pnpm run 失效的绕法、下游 dsh-alioth install 覆盖本机链接的修复、推送与镜像自拉核验。上游不收外部 issue/PR，演进只在本 fork。
+description: 在 deepseek-harness 的 Alioth fork 分支上定期合并上游 master 并推送到 fork 时使用：合并后门禁债务（casts 基线/ rescope 跳过/fork 包版本）、lockfile 自动合并破损的基底重建与刷新取舍、CI=true 下 pnpm run 失效的绕法、下游 dsh-alioth install 覆盖本机链接的修复、推送与镜像自拉核验。上游不收外部 issue/PR，演进只在本 fork。
 ---
 
 # Harness Alioth 分支合并上游
@@ -22,7 +22,7 @@ git worktree add --detach /tmp/wt-merge HEAD
 ln -sfn "$PWD/node_modules" /tmp/wt-merge/node_modules   # 必需，否则 tsx 门禁解析不到依赖
 cd /tmp/wt-merge && git merge --no-commit --no-ff upstream/master
 ```
-冲突取舍：门禁脚本/基线取**含实现**的一侧；测试文件取语义更优的一侧。落回主 checkout 用 `git merge --ff-only <sha>`（先 `git restore --staged --worktree -- <同名脏文件>`，否则 ff 被拒）。
+冲突取舍：门禁脚本/基线取**含实现**的一侧；测试文件取语义更优的一侧。双语配对哈希侧车（`docs/*.i18n.yaml`）两侧都会变：按合并后实际内容用 `node_modules/.bin/tsx scripts/verify-translation-pairing.ts --write <pair>.md` 重录。pre-commit 的 translation pairing 钩子校验 staged 字节，`--write` 之后必须重新 `git add` 再 commit，否则首次 commit 被拦。落回主 checkout 用 `git merge --ff-only <sha>`（先 `git restore --staged --worktree -- <同名脏文件>`，否则 ff 被拒）。
 
 ## 2. 合并后门禁债务（按序，全部用 tsx 直跑）
 
@@ -39,6 +39,12 @@ $N scripts/verify-package-dependencies.ts    # ④
 注意：上游 master **自身**的 `rescope-vendor:check` 就是红的（2026-09-24：`packages/extensions/ui-cordis/src/client/CordisPreparingRow.tsx`），所以第 ③ 步在上游新增 ui-cordis 卡片行后几乎必然要补条目。
 
 ## 3. lockfile 与本地环境
+
+**git 对 `pnpm-lock.yaml` 的自动合并必然语义破损，每次合并后先重建再验**：本分支 `pnpm-workspace.yaml` 把 react/react-dom 钉在 19.2.8、`@types/react` 钉 `^19.2.17`（AliothStudio 对齐），上游在 react 18 线；git 会不带冲突标记地文本合并 lockfile，产物缺上游侧条目（2026-10-18：`ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY: no entry for 'react@18.3.1'`），`pnpm install --fix-lockfile` 修不动。取本分支合并前一侧的 lockfile 作解析基底（合并未提交用 `git checkout HEAD -- pnpm-lock.yaml`；已提交用 `git checkout HEAD^1 -- pnpm-lock.yaml`），然后重装：
+
+```sh
+env -u CI pnpm install    # 在分支基底上收编上游新依赖；健康标志：相对基底净增行、无删行
+```
 
 ```sh
 env -u CI pnpm install            # 刷新 lockfile（收编兄弟仓 manifest 的 specifier 变化）；必须 env -u CI
