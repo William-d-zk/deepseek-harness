@@ -10,6 +10,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-jobs'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { observeJobOutput } from './observe.ts'
@@ -65,6 +66,27 @@ export class JobController extends TypertRemoteService {
   }
 
   /**
+   * Fail-closed Session admission for the dispatch's login account; the
+   * request's session is the caller of every fenced read below. Owner Peers
+   * carry no finer principal, so multi-tenant hosts scope them through the
+   * account policy; headless dispatches (no account) pass, and so do
+   * compositions without the access service (no browser transport).
+   * @param sessionId - the Session whose jobs the call mirrors, reads, or stops.
+   * @param action - canonical endpoint of the guarded call, for the refusal details.
+   */
+  private admit(sessionId: SessionId | undefined, action: 'job/list' | 'job/follow' | 'job/kill'): void {
+    // An unowned job names no session, so there is nothing to scope.
+    if (sessionId === undefined) return
+    const access = this.ctx.get('remoteAccess') as { admitsSession(sessionId: string): boolean } | undefined
+    if (access !== undefined && !access.admitsSession(sessionId)) {
+      throw new RemoteError('remote-access/denied', 'Session is not accessible to this account', {
+        action,
+        reason: 'account-scope',
+      })
+    }
+  }
+
+  /**
    * Stream the jobs one session can see — its own plus every unowned job —
    * as whole-set frames: one on open, then one after each coalesced burst of
    * lifecycle commits. The stream has no natural end; the carrier closes it.
@@ -74,6 +96,7 @@ export class JobController extends TypertRemoteService {
    */
   @Remote({ mode: 'stream' })
   list(request: JobListRequest, signal: AbortSignal): AsyncIterable<JobListFrame> {
+    this.admit(request.sessionId, 'job/list')
     return streamJobRows(this.ctx.jobs, request, { flushMs: this.observeFlushMs }, signal)
   }
 
@@ -89,6 +112,7 @@ export class JobController extends TypertRemoteService {
    */
   @Remote({ mode: 'stream' })
   follow(request: JobFollowRequest, signal: AbortSignal): AsyncIterable<JobFollowFrame> {
+    this.admit(request.sessionId, 'job/follow')
     return observeJobOutput(this.ctx.jobs, request, {
       flushMs: this.observeFlushMs,
       maxFrameBytes: this.observeMaxFrameBytes,
@@ -108,6 +132,7 @@ export class JobController extends TypertRemoteService {
    */
   @Remote('kill')
   kill(request: JobKillRequest): JobKillValue {
+    this.admit(request.sessionId, 'job/kill')
     const jobs = this.ctx.jobs
     try {
       jobs.get(request.jobId, request.sessionId)

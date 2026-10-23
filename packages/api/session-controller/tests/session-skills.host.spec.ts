@@ -259,4 +259,13 @@ describe('SessionSkillCatalog', () => {
         code: 'gateway/internal', message: 'skill listing failed: Error: catalog offline',
       })
   })
+  it('refuses the catalog for a Session the account policy does not admit', async () => {
+    const ctx = new Context()
+    ctx.provide('remoteAccess', { admitsSession: () => false } as never)
+    const catalog = new SessionSkillCatalog(ctx)
+
+    await expect(catalog.list({ sessionId: SessionId('skill-scope') }, new AbortController().signal))
+      .rejects.toMatchObject({ code: 'remote-access/denied' })
+  })
+
 })

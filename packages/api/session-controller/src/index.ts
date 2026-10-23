@@ -16,7 +16,7 @@ import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-ses
 import { Remote, RemoteError, TypertRemoteService, principalOf } from '@deepseek-ai/dsh-typert-protocol'
 import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
-import type {} from '@deepseek-ai/dsh-api-remote-access'
+import type { RemoteAccessAction } from '@deepseek-ai/dsh-api-remote-access'
 import {
   ApiSessionAgentController,
   inspectApiSession,
@@ -96,10 +96,27 @@ export interface Config {
   readonly nativeOpen?: boolean
   /** Positive integral milliseconds of list work before yielding between complete rows. */
   readonly listWorkSliceMs?: number
+  /**
+   * Serve the desktop handoff verbs (`openWorkspacePath`,
+   * `workspacePathApplications`, and the capability probes that drive their
+   * browser affordances). Deployments without a serving desktop on the
+   * caller's side of the wire set false. Default: true.
+   */
+  readonly openWorkspacePath?: boolean
+  /**
+   * Serve `initializeDefaultModel`, the host-level default-model write.
+   * Multi-tenant deployments set false: one caller's write selects for every
+   * session created later. Default: true.
+   */
+  readonly initializeDefaultModel?: boolean
 }
 
 /** Deployment policy after schema defaults have been applied. */
-type ResolvedConfig = Config & { readonly listWorkSliceMs: number }
+type ResolvedConfig = Config & {
+  readonly listWorkSliceMs: number
+  readonly openWorkspacePath: boolean
+  readonly initializeDefaultModel: boolean
+}
 
 /** Host integrations replaceable by direct unit tests. */
 export interface SessionControllerInternals {
@@ -135,6 +152,8 @@ export class SessionController extends TypertRemoteService {
   static Config: z<Config, ResolvedConfig> = z.object({
     nativeOpen: z.boolean(),
     listWorkSliceMs: z.natural().min(1).default(16),
+    openWorkspacePath: z.boolean().default(true),
+    initializeDefaultModel: z.boolean().default(true),
   })
 
   private readonly agents: ApiSessionAgentController
@@ -147,6 +166,7 @@ export class SessionController extends TypertRemoteService {
   private readonly openFileApplication: typeof openNativeFileApplication
   private readonly revealPath: (path: string, signal: AbortSignal) => Promise<void>
   private readonly canOpenPath: () => boolean
+  private readonly resolved: ResolvedConfig
   private readonly promotions = new Set<Promise<void>>()
 
   /**
@@ -157,7 +177,7 @@ export class SessionController extends TypertRemoteService {
   constructor(ctx: Context, config: Config, internals: SessionControllerInternals = {}) {
     super(ctx, 'sessionController', { namespace: 'session' })
     ctx.typert.resources.register('session', { field: 'sessionId' })
-    const resolved = SessionController.Config(config)
+    const resolved = this.resolved = SessionController.Config(config)
     installModelSelectionProjection(ctx)
     this.agents = new ApiSessionAgentController(ctx)
     this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
@@ -245,6 +265,29 @@ export class SessionController extends TypertRemoteService {
   }
 
   /**
+   * Fail-closed Session admission for the dispatch's login account. Owner
+   * Peers carry no finer principal, so multi-tenant hosts scope them through
+   * the account policy; headless dispatches (no account) pass. Synchronous by
+   * contract, so the guard cannot reorder the microtasks a Remote answer's
+   * own scheduling depends on.
+   * @param sessionId - the Session the call reads or operates.
+   * @param action - canonical endpoint of the guarded call, for the refusal details.
+   */
+  private admit(sessionId: SessionId, action: RemoteAccessAction): void {
+    if (!this.ctx.remoteAccess.admitsSession(sessionId)) {
+      throw new RemoteError('remote-access/denied', 'Session is not accessible to this account', {
+        action,
+        reason: 'account-scope',
+      })
+    }
+  }
+
+  /** Whether the dispatch's account may see the Session, without the refusal. */
+  private admitsSession(sessionId: SessionId): boolean {
+    return this.ctx.remoteAccess.admitsSession(sessionId)
+  }
+
+  /**
    * Inspect one attached or persisted Session without activating its Agent.
    * @param sessionId - durable Session identity.
    * @param signal - optional caller cancellation for persistence reads.
@@ -275,7 +318,10 @@ export class SessionController extends TypertRemoteService {
   @Remote('list')
   async list(_request: SessionListRequest, signal: AbortSignal): Promise<SessionListValue> {
     const items = await this.listState.list(signal)
-    return { items: items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId })) }
+    return {
+      items: items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId })
+        && this.admitsSession(item.sessionId)),
+    }
   }
 
   /**
@@ -289,7 +335,11 @@ export class SessionController extends TypertRemoteService {
   @Remote('search')
   async search(request: SessionSearchRequest, signal: AbortSignal): Promise<SessionSearchValue> {
     const result = await this.listState.search(request.query, signal)
-    return { ...result, items: result.items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId })) }
+    return {
+      ...result,
+      items: result.items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId })
+        && this.admitsSession(item.sessionId)),
+    }
   }
 
   /**
@@ -309,6 +359,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('selectModel')
   selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue> {
+    this.admit(request.sessionId, 'session/selectModel')
     return this.commands.selectModel(request)
   }
 
@@ -318,6 +369,10 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote
   async initializeDefaultModel(): Promise<void> {
+    if (!this.resolved.initializeDefaultModel) {
+      throw new RemoteError('session/default-model-init-disabled',
+        'initializeDefaultModel is disabled by deployment policy', {})
+    }
     const provider = 'deepseek-account'
     if (await hasProviderApiKey(this.ctx)) return
     const catalog = await buildModelCatalog(this.ctx)
@@ -345,7 +400,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote
   canOpenWorkspacePath(): boolean {
-    return this.canOpenPath()
+    return this.resolved.openWorkspacePath && this.canOpenPath()
   }
 
   /**
@@ -354,7 +409,11 @@ export class SessionController extends TypertRemoteService {
    */
   workspaceDesktop(): { name: string; available: boolean; fileManager: 'finder' | 'explorer' | 'directory' | null } {
     const fileManager = nativeFileManager()
-    return { name: hostname(), available: fileManager !== null && this.canOpenPath(), fileManager }
+    return {
+      name: hostname(),
+      available: this.resolved.openWorkspacePath && fileManager !== null && this.canOpenPath(),
+      fileManager,
+    }
   }
 
   /**
@@ -369,6 +428,10 @@ export class SessionController extends TypertRemoteService {
     request: SessionOpenWorkspacePathRequest,
     signal: AbortSignal,
   ): Promise<SessionOpenWorkspacePathValue> {
+    if (!this.resolved.openWorkspacePath) {
+      throw new RemoteError('session/desktop-open-disabled',
+        'openWorkspacePath is disabled by deployment policy', {})
+    }
     try {
       const path = await this.verifyDesktopPath(request.path, signal)
       if (request.action === 'reveal') await this.revealPath(path, signal)
@@ -398,7 +461,7 @@ export class SessionController extends TypertRemoteService {
   async workspacePathApplications(
     request: { readonly path: string }, signal: AbortSignal,
   ): Promise<readonly SessionWorkspacePathApplication[]> {
-    if (!this.canOpenPath()) return []
+    if (!this.resolved.openWorkspacePath || !this.canOpenPath()) return []
     try {
       const path = await this.verifyDesktopPath(request.path, signal)
       return await this.fileApplications(path, signal)
@@ -429,6 +492,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('rename')
   rename(request: SessionRenameRequest): Promise<SessionRenameValue> {
+    this.admit(request.sessionId, 'session/rename')
     return this.commands.rename(request)
   }
 
@@ -441,6 +505,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('fork')
   async fork(request: SessionForkRequest): Promise<SessionForkValue> {
+    this.admit(request.sessionId, 'session/fork')
     if (request.allowMigration === false && this.ctx.sessions.get(request.sessionId) === undefined) {
       const stored = await this.ctx.get('sessionPersistence')?.stat(request.sessionId)
       if (stored?.formatStatus === 'migration-required' && this.ctx.sessions.get(request.sessionId) === undefined) {
@@ -461,6 +526,7 @@ export class SessionController extends TypertRemoteService {
   @Remote('prompt')
   async prompt(request: SessionPromptRequest, signal: AbortSignal): Promise<SessionPromptValue> {
     signal.throwIfAborted()
+    this.admit(request.sessionId, 'session/prompt')
     if (!hasPromptContent(request.content)) {
       throw new RemoteError('gateway/bad-request', 'prompt content must include non-whitespace text or an attachment', {})
     }
@@ -492,6 +558,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('attachment')
   attachment(request: SessionAttachmentRequest): Promise<SessionAttachmentValue> {
+    this.admit(request.sessionId, 'session/attachment')
     return this.commands.attachment(request)
   }
 
@@ -502,6 +569,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('updateQueue')
   updateQueue(request: SessionUpdateQueueRequest): Promise<SessionUpdateQueueValue> {
+    this.admit(request.sessionId, 'session/updateQueue')
     return this.commands.updateQueue(request)
   }
 
@@ -512,6 +580,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('cancel')
   cancel(request: SessionCancelRequest): SessionCancelValue {
+    this.admit(request.sessionId, 'session/cancel')
     return this.commands.cancel(request)
   }
 
@@ -523,6 +592,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote({ name: 'page', resources: { session: addressedSession } })
   page(request: SessionPageRequest, signal: AbortSignal): Promise<SessionPage> {
+    this.admit(addressedSession(request), 'session/page')
     return this.history.page(request, signal)
   }
 
@@ -535,6 +605,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote({ mode: 'stream', resources: { session: addressedSession } })
   follow(request: SessionFollowRequest, signal: AbortSignal): AsyncIterable<SessionFollowFrame> {
+    this.admit(addressedSession(request), 'session/follow')
     return this.history.follow(request, signal)
   }
 
@@ -550,6 +621,7 @@ export class SessionController extends TypertRemoteService {
     if (sessionId.length === 0) {
       throw new RemoteError('gateway/bad-request', 'sessionId must not be empty', {})
     }
+    this.admit(sessionId, 'session/projections')
     try {
       signal.throwIfAborted()
       const live = this.liveProjections(sessionId)
@@ -597,16 +669,18 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote({ mode: 'stream' })
   async *control(signal: AbortSignal): AsyncIterable<SessionControlFrame> {
+    const admitted = (sessionId: SessionId): boolean =>
+      this.ctx.remoteAccess.allows({ kind: 'session', id: sessionId }) && this.admitsSession(sessionId)
     for await (const frame of this.controlState.control(signal)) {
       switch (frame.type) {
         case 'baseline': {
           const projections = Object.fromEntries(Object.entries(frame.value.projections)
-            .filter(([sessionId]) => this.ctx.remoteAccess.allows({ kind: 'session', id: sessionId as SessionId })))
+            .filter(([sessionId]) => admitted(sessionId as SessionId)))
           yield { type: 'baseline', value: { ...frame.value, projections } }
           break
         }
         case 'projection':
-          if (this.ctx.remoteAccess.allows({ kind: 'session', id: frame.sessionId })) yield frame
+          if (admitted(frame.sessionId)) yield frame
           break
         /* v8 ignore next -- closed control-frame union. */
         default:

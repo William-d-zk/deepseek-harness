@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import sharp from 'sharp'
 import LocalAttachmentStore, {
+  DEFAULT_MAX_FILE_BYTES,
   DEFAULT_NORMALIZED_IMAGE_MAX_BYTES,
   DEFAULT_NORMALIZED_IMAGE_MAX_DIMENSION,
   DEFAULT_NORMALIZED_IMAGE_MAX_PIXELS,
@@ -40,6 +41,8 @@ describe('local attachment service', () => {
       maxBytes: DEFAULT_NORMALIZED_IMAGE_MAX_BYTES,
     })
     expect(service.imageCompressionConcurrency).toBe(DEFAULT_IMAGE_COMPRESSION_CONCURRENCY)
+    expect(DEFAULT_MAX_FILE_BYTES).toBe(64 * 1024 * 1024)
+    expect(service.maxFileBytes).toBe(DEFAULT_MAX_FILE_BYTES)
     const ref = {
       attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
       mediaType: 'image/png' as const,

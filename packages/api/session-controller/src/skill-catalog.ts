@@ -35,6 +35,13 @@ export class SessionSkillCatalog extends TypertRemoteService {
   @Remote
   async list(request: SkillListRequest, signal: AbortSignal): Promise<SkillListValue> {
     const { sessionId } = request
+    const access = this.ctx.get('remoteAccess')
+    if (access !== undefined && !access.admitsSession(sessionId)) {
+      throw new RemoteError('remote-access/denied', 'Session is not accessible to this account', {
+        action: 'skills/list',
+        reason: 'account-scope',
+      })
+    }
     let cwd: string
     let agentPreset: string | undefined
     try {

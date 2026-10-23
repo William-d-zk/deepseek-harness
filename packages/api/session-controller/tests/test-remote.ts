@@ -32,6 +32,7 @@ import {
   type RemoteResult,
 } from '@deepseek-ai/dsh-typert-protocol'
 import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
+import { currentConnectionAccount } from '@deepseek-ai/dsh-client-connection'
 import SessionController from '../src/index.ts'
 import type {
   ModelCatalog,
@@ -98,6 +99,8 @@ export interface TestSessionRemoteDefaults {
   readonly defaultModelSelection: () => AgentModelSelection
   readonly cwd: string
   readonly nativeOpen?: boolean
+  readonly openWorkspacePath?: boolean
+  readonly initializeDefaultModel?: boolean
   readonly saveDefaultModelSelection?: (selection: AgentModelSelection) => void | Promise<void>
   readonly openPath?: (path: string, signal: AbortSignal) => Promise<void>
   readonly fileApplications?: SessionControllerInternals['fileApplications']
@@ -291,7 +294,11 @@ function installControllers(
     } as never)
   }
   installSessionReadTestServices(ctx)
-  if (ctx.get('remoteAccess') === undefined) new RemoteAccessService(ctx)
+  if (ctx.get('remoteAccess') === undefined) {
+    // The real sync reader keeps the account scope deterministic in tests
+    // (the default lazy reader has an unsettled window before its module loads).
+    new RemoteAccessService(ctx, { currentAccount: currentConnectionAccount })
+  }
   const cwd = vi.spyOn(process, 'cwd').mockReturnValue(defaults.cwd)
   let controller: SessionController
   try {
@@ -299,6 +306,8 @@ function installControllers(
       ctx,
       {
         ...defaults.nativeOpen === undefined ? {} : { nativeOpen: defaults.nativeOpen },
+        ...defaults.openWorkspacePath === undefined ? {} : { openWorkspacePath: defaults.openWorkspacePath },
+        ...defaults.initializeDefaultModel === undefined ? {} : { initializeDefaultModel: defaults.initializeDefaultModel },
       },
       {
         ...defaults.openPath === undefined ? {} : { openPath: defaults.openPath },

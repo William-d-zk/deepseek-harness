@@ -25,6 +25,7 @@ import type {
   RemoteAccessGrant,
   RemoteAccessPolicy,
   RemoteAccessRequest,
+  RemoteAccountPolicy,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -67,6 +68,34 @@ interface ErasedBinding {
 interface PolicyEntry {
   readonly kind: string
   readonly policy: RemoteAccessPolicy<Principal>
+}
+
+/** Host integrations replaceable by direct unit tests. */
+export interface RemoteAccessInternals {
+  /** Login-account reader for the dispatch being served; defaults to the connection account context. */
+  readonly currentAccount?: () => string | null
+}
+
+/**
+ * Load the connection package's synchronous account reader. The package is an
+ * optional peer: trees without it (no browser transport) resolve a null
+ * reader, and so does every dispatch outside its account scope. The load
+ * starts when the service mounts and answers reads once settled; no dispatch
+ * can be scoped before the transport that carries it exists.
+ */
+function loadDefaultAccountReader(): () => string | null {
+  const reader: { current?: () => string | null } = {}
+  // The specifier stays opaque so this project's TypeScript graph never pulls
+  // the optional peer's sources in.
+  const specifier = '@deepseek-ai/dsh-client-connection'
+  void import(specifier).then(
+    (connection: { currentConnectionAccount(): string | null }) => {
+      reader.current = () => connection.currentConnectionAccount()
+    },
+    () => { reader.current = () => null },
+  )
+  /* v8 ignore next 3 -- The unloaded window covers no dispatch: it exists only before the transport mounts. */
+  return () => reader.current?.() ?? null
 }
 
 /** A condition's refusal. */
@@ -129,10 +158,16 @@ export class RemoteAccessService extends TypertRemoteService {
   private readonly followers = new Set<AccessFollower>()
   /** Aborted when this instance unloads; every open snapshot generation ends with it. */
   private readonly lifetime = new AbortController()
+  private readonly currentAccount: () => string | null
+  private accountPolicy: RemoteAccountPolicy | undefined
 
-  /** @param ctx - owning Host plugin Context. */
-  constructor(ctx: Context) {
+  /**
+   * @param ctx - owning Host plugin Context.
+   * @param internals - host integrations replaceable by direct unit tests.
+   */
+  constructor(ctx: Context, internals: RemoteAccessInternals = {}) {
     super(ctx, 'remoteAccess')
+    this.currentAccount = internals.currentAccount ?? loadDefaultAccountReader()
     ctx.effect(() => () => { this.lifetime.abort() }, 'remoteAccess: snapshot generations')
     // Every index the webServer renders belongs to the owner; snapshotFor documents non-owner pages.
     ctx.inject(['webServer'], (webCtx) => {
@@ -163,6 +198,67 @@ export class RemoteAccessService extends TypertRemoteService {
       }
     }, `remoteAccess.registerPolicy(${JSON.stringify(kind)})`)
     return () => { void dispose() }
+  }
+
+  /**
+   * Register the deployment's account-scope policy in the caller's fiber.
+   * Every connected browser is an owner Peer, so the non-owner policy
+   * machinery never constrains one; hosts with their own login scope those
+   * callers through this policy instead, keyed by the dispatch's resolved
+   * account.
+   * @param policy - Session and Workspace questions answered per account.
+   * @returns disposer removing the policy.
+   * @throws Error when a policy is already registered.
+   */
+  registerAccountPolicy(policy: RemoteAccountPolicy): () => void {
+    if (this.accountPolicy !== undefined) {
+      throw new Error('remote access: an account policy is already registered')
+    }
+    this.accountPolicy = policy
+    return this.ctx.effect(() => () => { this.accountPolicy = undefined }, 'remoteAccess.registerAccountPolicy()')
+  }
+
+  /**
+   * Whether the dispatch's account may see and operate one Session. True for
+   * dispatches without a login account (headless, single-user) and for
+   * deployments without a registered policy; otherwise the policy answers,
+   * and a policy failure denies (fail-closed). Synchronous by contract: a
+   * guard that awaits could reorder the microtasks a Remote answer's own
+   * scheduling depends on.
+   * @param sessionId - the Session the call reads or operates.
+   * @returns false only when a logged-in dispatch's policy refuses it.
+   */
+  admitsSession(sessionId: string): boolean {
+    const account = this.currentAccount()
+    const policy = this.accountPolicy
+    if (account === null || policy === undefined) return true
+    try {
+      return policy.sessionAccessible(account, sessionId)
+    } catch (error) {
+      this.ctx.logger.warn('remote access: the account policy failed a Session check; denying it')
+      this.ctx.logger.warn(error)
+      return false
+    }
+  }
+
+  /**
+   * Whether the dispatch's account may register a Workspace over one
+   * directory, with the same headless, unscoped, synchronous, and fail-closed
+   * semantics as {@link admitsSession}.
+   * @param path - fully qualified Workspace directory.
+   * @returns false only when a logged-in dispatch's policy refuses it.
+   */
+  admitsWorkspacePath(path: string): boolean {
+    const account = this.currentAccount()
+    const policy = this.accountPolicy
+    if (account === null || policy === undefined) return true
+    try {
+      return policy.workspaceAdmissible(account, path)
+    } catch (error) {
+      this.ctx.logger.warn('remote access: the account policy failed a Workspace check; denying it')
+      this.ctx.logger.warn(error)
+      return false
+    }
   }
 
   /**

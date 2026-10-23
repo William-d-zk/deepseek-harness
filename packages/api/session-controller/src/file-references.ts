@@ -4,7 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-file-reference'
 import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference/types'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -35,6 +35,13 @@ export class SessionFileReferences extends TypertRemoteService {
     query: string,
     signal: AbortSignal,
   ): Promise<FileReferenceCandidate[]> {
+    const access = this.ctx.get('remoteAccess')
+    if (access !== undefined && !access.admitsSession(agent.id)) {
+      throw new RemoteError('remote-access/denied', 'Session is not accessible to this account', {
+        action: 'fileReferences/list',
+        reason: 'account-scope',
+      })
+    }
     return this.ctx.fileReferences.list(agent, query, signal)
   }
 }

@@ -16,6 +16,7 @@ describe('/export Web download command', () => {
     ctx.provide('connection', {
       fetch: { register: () => () => Promise.resolve() },
     } as never)
+    ctx.provide('remoteAccess', { admitsSession: () => true } as never)
     const fiber = await ctx.plugin(SessionLogDownload)
 
     expect(descriptor).toMatchObject({

@@ -38,7 +38,7 @@ export type {
 } from './archive.ts'
 
 export const name = 'session-log-download'
-export const inject = ['commands', 'connection']
+export const inject = ['commands', 'connection', 'remoteAccess']
 
 export { SESSION_LOG_EXPORT_PATH } from './routes.ts'
 
@@ -101,6 +101,19 @@ export function apply(ctx: Context, config: Config = {}): void {
   })
 }
 
+/**
+ * Fail-closed Session admission for the dispatch's login account. The route
+ * bypasses the Gateway's access checks (it is an exact fetch route served to
+ * the owner), so the account policy is the only boundary scoping which
+ * Session a caller may archive; descendant logs inherit the root's admission.
+ * Compositions without the access service (no browser transport) stay
+ * unscoped.
+ */
+function admitted(ctx: Context, sessionId: SessionId): boolean {
+  const access = ctx.get('remoteAccess') as { admitsSession(sessionId: string): boolean } | undefined
+  return access === undefined || access.admitsSession(sessionId)
+}
+
 function connectionOf(ctx: Context): SessionLogConnection {
   return Reflect.get(ctx, 'connection') as SessionLogConnection
 }
@@ -119,6 +132,9 @@ async function sessionLogExportResponse(
     return new Response('missing or invalid sessionId query parameter', { status: 400 })
   }
   const sessionId = brandString<SessionId>(sessionIdValue)
+  if (!admitted(ctx, sessionId)) {
+    return new Response('session not found', { status: 404 })
+  }
   const deps = sessionLogExportDeps(ctx)
   if (deps.sessionQuery === undefined
     || deps.sessionPersistence === undefined

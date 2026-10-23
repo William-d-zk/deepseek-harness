@@ -37,6 +37,7 @@ describe('session-log-download real Loader composition', () => {
     context.provide('connection', {
       fetch: { register: () => () => Promise.resolve() },
     } as never)
+    context.provide('remoteAccess', { admitsSession: () => true } as never)
     await context.plugin(Loader)
     context.loader.builtins.include = Include
     const modules = new Map<string, unknown>([

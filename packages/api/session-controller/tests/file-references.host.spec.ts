@@ -17,4 +17,18 @@ describe('SessionFileReferences', () => {
     await expect(adapter.list(agent, 'sr', signal)).resolves.toBe(candidates)
     expect(list).toHaveBeenCalledWith(agent, 'sr', signal)
   })
+
+  it('refuses the completion for a Session the account policy does not admit', async () => {
+    const ctx = new Context()
+    const list = vi.fn(() => Promise.resolve([]))
+    ctx.provide('fileReferences', { list } as never)
+    ctx.provide('remoteAccess', { admitsSession: () => false } as never)
+    const adapter = new SessionFileReferences(ctx)
+    const agent = { id: 'target' } as unknown as Agent
+
+    expect(() => adapter.list(agent, 'sr', new AbortController().signal)).toThrow(
+      expect.objectContaining({ code: 'remote-access/denied' }),
+    )
+    expect(list).not.toHaveBeenCalled()
+  })
 })

@@ -86,12 +86,17 @@ function storedFileObjectPath(root: string, sha256: string): string {
  * Commit one file byte-for-byte below a versioned attachment root.
  * @param root - absolute `DSH_HOME/attachments/v1` root.
  * @param input - exact bytes and optional display name.
+ * @param maxBytes - maximum accepted file size; oversized files are refused before any write. Unbounded when omitted.
  * @returns the durable content-addressed file reference.
  */
 export async function saveFileVerbatim(
   root: string,
   input: SaveFileAttachment,
+  maxBytes: number = Number.POSITIVE_INFINITY,
 ): Promise<FileAttachmentRef> {
+  if (input.data.byteLength > maxBytes) {
+    throw new AttachmentError('File attachment exceeds the configured size limit.', 'FILE_TOO_LARGE')
+  }
   const sha256 = createHash('sha256').update(input.data).digest('hex')
   const ref: FileAttachmentRef = {
     attachmentId: AttachmentId(`sha256:${sha256}`),
@@ -105,19 +110,40 @@ export async function saveFileVerbatim(
 }
 
 /**
+ * Refuse byte streams beyond `maxBytes` while staging; the staging file of a
+ * refused stream is removed by the staging cleanup, so an oversized upload
+ * persists nothing.
+ */
+async function* boundedChunks(
+  data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  maxBytes: number,
+): AsyncIterable<Uint8Array> {
+  let total = 0
+  for await (const chunk of data) {
+    total += chunk.byteLength
+    if (total > maxBytes) {
+      throw new AttachmentError('File attachment exceeds the configured size limit.', 'FILE_TOO_LARGE')
+    }
+    yield chunk
+  }
+}
+
+/**
  * Commit one file byte-for-byte from bounded chunks below a versioned attachment root.
  * @param root - absolute `DSH_HOME/attachments/v1` root.
  * @param input - ordered exact bytes, optional cancellation, and display name.
+ * @param maxBytes - maximum accepted file size; the stream is refused once its cumulative bytes exceed it. Unbounded when omitted.
  * @returns the durable content-addressed file reference.
  */
 export async function saveFileStreamVerbatim(
   root: string,
   input: SaveFileStreamAttachment,
+  maxBytes: number = Number.POSITIVE_INFINITY,
 ): Promise<FileAttachmentRef> {
   const name = fileLeafName(input.name)
   const stored = await publishImmutableObjectStream(
     root,
-    input.data,
+    boundedChunks(input.data, maxBytes),
     sha256 => storedFileObjectPath(root, sha256),
     input.signal,
   )

@@ -42,6 +42,9 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** The session's job list no longer carries a killable row under that id. */
     'job/not-found': { readonly sessionId: SessionId; readonly jobId: JobId }
+    // Mirrors the remote-access contract this package's account-scope
+    // refusals reuse, so the code type-checks without importing it.
+    'remote-access/denied': { readonly action: string; readonly reason: string }
   }
 }
 

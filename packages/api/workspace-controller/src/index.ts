@@ -2,8 +2,8 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type {} from '@deepseek-ai/dsh-api-remote-access'
+import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import type { RemoteAccessAction } from '@deepseek-ai/dsh-api-remote-access'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { WorkspaceCommands } from './commands.ts'
 import { DirectoryPickerController } from './directory-picker.ts'
@@ -85,12 +85,42 @@ export class WorkspaceController extends TypertRemoteService {
   }
 
   /**
+   * Fail-closed admission for the dispatch's login account. Owner Peers carry
+   * no finer principal, so multi-tenant hosts scope them through the account
+   * policy; headless dispatches (no account) pass.
+   */
+  private admitSession(sessionId: SessionId, action: RemoteAccessAction): void {
+    if (!this.ctx.remoteAccess.admitsSession(sessionId)) {
+      throw new RemoteError('remote-access/denied', 'Session is not accessible to this account', {
+        action,
+        reason: 'account-scope',
+      })
+    }
+  }
+
+  /** Fail-closed Workspace-directory admission for the dispatch's login account. */
+  private admitWorkspacePath(path: string, action: RemoteAccessAction): void {
+    if (!this.ctx.remoteAccess.admitsWorkspacePath(path)) {
+      throw new RemoteError('remote-access/denied', 'Workspace directory is not admissible for this account', {
+        action,
+        reason: 'account-scope',
+      })
+    }
+  }
+
+  /** The registered directory of one Workspace, when it still exists. */
+  private pathOf(workspaceId: WorkspaceId): string | undefined {
+    return this.ctx.workspaceRegistry.get(workspaceId)?.path
+  }
+
+  /**
    * Create or idempotently resolve one Workspace over an existing directory.
    * @param request - directory path to register.
    * @returns the Workspace and whether this call created it.
    */
   @Remote('create')
-  create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
+  async create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
+    this.admitWorkspacePath(request.path, 'workspace/create')
     return this.commands.create(request)
   }
 
@@ -106,9 +136,13 @@ export class WorkspaceController extends TypertRemoteService {
   async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined> {
     const workspace = await this.ctx.workspaceRegistry.initializeDefault(async () => {
       const timeout = AbortSignal.timeout(this.config.documentsLookupTimeoutMs)
-      return await defaultWorkspaceDirectory(
+      const directory = await defaultWorkspaceDirectory(
         this.config.documentsDirectory, AbortSignal.any([signal, timeout]),
       )
+      // The account check rides the create path only, so the reuse path keeps
+      // its no-lookup contract and a refusal aborts before any registration.
+      this.admitWorkspacePath(directory, 'workspace/initializeDefault')
+      return directory
     })
     return workspace === undefined ? undefined : { workspace: workspaceView(workspace) }
   }
@@ -119,7 +153,9 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the updated Workspace projection.
    */
   @Remote('rename')
-  rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue> {
+  async rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue> {
+    const path = this.pathOf(request.workspaceId)
+    if (path !== undefined) this.admitWorkspacePath(path, 'workspace/rename')
     return this.commands.rename(request)
   }
 
@@ -129,7 +165,9 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns deletion confirmation.
    */
   @Remote('delete')
-  delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue> {
+  async delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue> {
+    const path = this.pathOf(request.workspaceId)
+    if (path !== undefined) this.admitWorkspacePath(path, 'workspace/delete')
     return this.commands.delete(request)
   }
 
@@ -139,7 +177,9 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the complete resulting Workspace order.
    */
   @Remote('insertBefore')
-  insertBefore(request: WorkspaceInsertBeforeRequest): Promise<WorkspaceOrderValue> {
+  async insertBefore(request: WorkspaceInsertBeforeRequest): Promise<WorkspaceOrderValue> {
+    const path = this.pathOf(request.workspaceId)
+    if (path !== undefined) this.admitWorkspacePath(path, 'workspace/insertBefore')
     return this.commands.insertBefore(request)
   }
 
@@ -149,7 +189,8 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the updated Workspace projection.
    */
   @Remote('insertSessionBefore')
-  insertSessionBefore(request: WorkspaceInsertSessionBeforeRequest): Promise<WorkspaceValue> {
+  async insertSessionBefore(request: WorkspaceInsertSessionBeforeRequest): Promise<WorkspaceValue> {
+    this.admitSession(request.sessionId, 'workspace/insertSessionBefore')
     return this.commands.insertSessionBefore(request)
   }
 
@@ -159,7 +200,8 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the complete resulting archive set.
    */
   @Remote('archiveSession')
-  archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+  async archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+    this.admitSession(request.sessionId, 'workspace/archiveSession')
     return this.commands.archiveSession(request)
   }
 
@@ -169,7 +211,8 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the complete resulting archive set.
    */
   @Remote('unarchiveSession')
-  unarchiveSession(request: WorkspaceUnarchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+  async unarchiveSession(request: WorkspaceUnarchiveSessionRequest): Promise<WorkspaceArchiveValue> {
+    this.admitSession(request.sessionId, 'workspace/unarchiveSession')
     return this.commands.unarchiveSession(request)
   }
 
@@ -179,7 +222,8 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns deletion confirmation.
    */
   @Remote('deleteSession')
-  deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue> {
+  async deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue> {
+    this.admitSession(request.sessionId, 'workspace/deleteSession')
     return this.commands.deleteSession(request)
   }
 
@@ -189,7 +233,8 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the complete resulting pin set, most recently pinned first.
    */
   @Remote('pinSession')
-  pinSession(request: WorkspacePinSessionRequest): Promise<WorkspacePinValue> {
+  async pinSession(request: WorkspacePinSessionRequest): Promise<WorkspacePinValue> {
+    this.admitSession(request.sessionId, 'workspace/pinSession')
     return this.commands.pinSession(request)
   }
 
@@ -199,13 +244,16 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the complete resulting pin set, most recently pinned first.
    */
   @Remote('unpinSession')
-  unpinSession(request: WorkspaceUnpinSessionRequest): Promise<WorkspacePinValue> {
+  async unpinSession(request: WorkspaceUnpinSessionRequest): Promise<WorkspacePinValue> {
+    this.admitSession(request.sessionId, 'workspace/unpinSession')
     return this.commands.unpinSession(request)
   }
 
   /**
    * Stream a complete Workspace baseline followed by ordered increments. A
-   * non-owner receives only the Workspaces and Sessions `allows()` admits.
+   * non-owner receives only the Workspaces and Sessions `allows()` admits; a
+   * logged-in owner receives only the Workspaces whose directory and Sessions
+   * the account policy admits.
    * When a delivered Workspace is no longer admitted at its next change or
    * the next order change, the stream sends a `replace` frame with the
    * complete filtered state instead of a `remove`, because a Client never
@@ -217,9 +265,14 @@ export class WorkspaceController extends TypertRemoteService {
   @Remote({ mode: 'stream' })
   async *follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame> {
     const access = this.ctx.remoteAccess
-    const visible = (workspaceId: WorkspaceId): boolean => access.allows({ kind: 'workspace', id: workspaceId })
+    const visible = (workspaceId: WorkspaceId): boolean => {
+      if (!access.allows({ kind: 'workspace', id: workspaceId })) return false
+      const path = this.pathOf(workspaceId)
+      return path === undefined || access.admitsWorkspacePath(path)
+    }
     const sessions = (sessionIds: readonly SessionId[]): SessionId[] =>
-      sessionIds.filter(sessionId => access.allows({ kind: 'session', id: sessionId }))
+      sessionIds.filter(sessionId => access.allows({ kind: 'session', id: sessionId })
+        && access.admitsSession(sessionId))
     /** Workspaces this generation has delivered and not yet removed. */
     const delivered = new Set<WorkspaceId>()
     /** The admitted part of `value`; it becomes the delivered set. */

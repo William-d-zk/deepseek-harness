@@ -115,6 +115,33 @@ export interface RemoteAccessDeniedDetails {
   readonly reason: string
 }
 
+/**
+ * Deployment-owned scoping policy for logged-in browser callers. A host with
+ * its own login (every connected browser is an owner Peer with no finer
+ * principal) registers one through `remoteAccess.registerAccountPolicy`; the
+ * service then consults it for Session and Workspace questions, keyed by the
+ * dispatch's resolved login account. Headless dispatches (no account) and
+ * deployments without a policy stay unscoped.
+ */
+export interface RemoteAccountPolicy {
+  /**
+   * Whether the account may see and operate one Session. Answers
+   * synchronously from in-process state, so a guard cannot reorder the
+   * microtasks a Remote answer's own scheduling depends on; deployments back
+   * it with an in-memory mirror they keep coherent themselves.
+   * @param account - the dispatch's resolved login account.
+   * @param sessionId - the Session the call reads or operates.
+   */
+  readonly sessionAccessible: (account: string, sessionId: string) => boolean
+  /**
+   * Whether the account may register (and thus keep) a Workspace over one
+   * directory, with the same synchronous contract.
+   * @param account - the dispatch's resolved login account.
+   * @param path - fully qualified Workspace directory.
+   */
+  readonly workspaceAdmissible: (account: string, path: string) => boolean
+}
+
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
     'remote-access/denied': RemoteAccessDeniedDetails

@@ -34,12 +34,13 @@ function readHandle(id: string): SessionHandle {
   } as unknown as SessionHandle
 }
 
-async function mounted(withServices: boolean): Promise<{
+async function mounted(withServices: boolean, admits: (sessionId: string) => boolean = () => true): Promise<{
   readonly connection: HostConnectionService
   readonly dispose: () => Promise<void>
 }> {
   const ctx = new Context()
   ctx.provide('commands', { register: () => () => {} } as never)
+  ctx.provide('remoteAccess', { admitsSession: (sessionId: string) => admits(sessionId) } as never)
   if (withServices) {
     ctx.provide('sessionQuery', {
       traceSession: async () => ({ descendants: [] }),
@@ -93,6 +94,18 @@ describe('Session log export Fetch route', () => {
     expect((await shared.fetch(new Request(
       `http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`,
     ), connection.browserPeer)).status).toBe(500)
+    await dispose()
+  })
+
+  it('answers 404 for a Session the account policy does not admit', async () => {
+    const { connection, dispose } = await mounted(true, sessionId => sessionId !== 'session-1')
+    const shared = connection.createSharedFetchHandler('/api')
+    expect((await shared.fetch(new Request(
+      `http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`,
+    ), connection.browserPeer)).status).toBe(404)
+    expect((await shared.fetch(new Request(
+      `http://host${SESSION_LOG_EXPORT_PATH}?sessionId=other`,
+    ), connection.browserPeer)).status).toBe(200)
     await dispose()
   })
 

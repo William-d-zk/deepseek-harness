@@ -32,6 +32,8 @@ export { readRequestImageFile, requestImageVariantId } from './request-image.ts'
 
 /** Default maximum encoded bytes for one submitted image; oversized sources are refused, not shrunk. */
 export const DEFAULT_MAX_IMAGE_BYTES = 20 * 1024 * 1024
+/** Default maximum accepted bytes for one submitted (non-image) file. */
+export const DEFAULT_MAX_FILE_BYTES = 64 * 1024 * 1024
 /** Default maximum images in one prompt. */
 export const DEFAULT_MAX_IMAGES_PER_MESSAGE = 20
 /** Default maximum aggregate image bytes in one prompt. */
@@ -63,6 +65,11 @@ export interface Config {
   dshHome?: string
   /** Maximum encoded bytes accepted for one submitted image. Default: 20 MiB. */
   maxImageBytes?: number
+  /**
+   * Maximum accepted bytes for one submitted (non-image) file, enforced while
+   * the upload streams so an oversized upload persists nothing. Default: 64 MiB.
+   */
+  maxFileBytes?: number
   /** Maximum image count accepted in one submitted message. Default: 20. */
   maxImagesPerMessage?: number
   /** Maximum aggregate encoded image bytes accepted in one submitted message. Default: 200 MiB. */
@@ -148,6 +155,7 @@ export class LocalAttachmentStore extends AttachmentStore {
   static Config: z<Config> = z.object({
     dshHome: z.string(),
     maxImageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_IMAGE_BYTES),
+    maxFileBytes: z.number().step(1).min(1).default(DEFAULT_MAX_FILE_BYTES),
     maxImagesPerMessage: z.number().step(1).min(1).default(DEFAULT_MAX_IMAGES_PER_MESSAGE),
     maxMessageImageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_MESSAGE_IMAGE_BYTES),
     maxImagePixels: z.number().step(1).min(1).default(DEFAULT_MAX_IMAGE_PIXELS),
@@ -162,6 +170,8 @@ export class LocalAttachmentStore extends AttachmentStore {
   /** Absolute versioned storage root. */
   readonly root: string
   readonly imageLimits: ImageAttachmentLimits
+  /** Resolved maximum accepted bytes for one submitted (non-image) file. */
+  readonly maxFileBytes: number
   /** Resolved provider-independent normalization policy. */
   readonly normalizationPolicy: Readonly<NormalizationPolicy>
   /** Resolved instance-level compression limit. */
@@ -183,6 +193,7 @@ export class LocalAttachmentStore extends AttachmentStore {
       maxImageDimension: config.maxImageDimension ?? DEFAULT_MAX_IMAGE_DIMENSION,
       mediaTypes: Object.freeze(['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const),
     })
+    this.maxFileBytes = config.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES
     this.normalizationPolicy = Object.freeze({
       maxPixels: config.normalizedImageMaxPixels ?? DEFAULT_NORMALIZED_IMAGE_MAX_PIXELS,
       maxDimension: config.normalizedImageMaxDimension ?? DEFAULT_NORMALIZED_IMAGE_MAX_DIMENSION,
@@ -230,11 +241,11 @@ export class LocalAttachmentStore extends AttachmentStore {
   }
 
   override async saveFile(input: SaveFileAttachment): Promise<FileAttachmentRef> {
-    return saveFileVerbatim(this.root, input)
+    return saveFileVerbatim(this.root, input, this.maxFileBytes)
   }
 
   override async saveFileStream(input: SaveFileStreamAttachment): Promise<FileAttachmentRef> {
-    return saveFileStreamVerbatim(this.root, input)
+    return saveFileStreamVerbatim(this.root, input, this.maxFileBytes)
   }
 
   override readFileStream(ref: FileAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array> {

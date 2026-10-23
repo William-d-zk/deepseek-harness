@@ -195,6 +195,50 @@ describe('saveFileStreamVerbatim', () => {
     })).rejects.toMatchObject({ code: 'ATTACHMENT_WRITE_FAILED' })
     expect(await readdir(join(root, 'tmp'))).toEqual([])
   })
+
+  it('refuses a byte stream past the size limit before it persists anything', async () => {
+    const root = await makeRoot()
+    await expect(saveFileStreamVerbatim(root, {
+      data: (async function* (): AsyncIterable<Uint8Array> {
+        yield Uint8Array.of(1, 2)
+        yield Uint8Array.of(3, 4)
+      })(),
+      name: 'toobig.bin',
+    }, 3)).rejects.toMatchObject({ code: 'FILE_TOO_LARGE' })
+    expect(await readdir(join(root, 'tmp'))).toEqual([])
+    await expect(readdir(join(root, 'file-objects'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('admits a byte stream at exactly the size limit', async () => {
+    const root = await makeRoot()
+    const ref = await saveFileStreamVerbatim(root, {
+      data: (async function* (): AsyncIterable<Uint8Array> {
+        yield Uint8Array.of(1, 2)
+        yield Uint8Array.of(3)
+      })(),
+      name: 'exact.bin',
+    }, 3)
+    expect(ref.bytes).toBe(3)
+  })
+})
+
+describe('file size limits', () => {
+  it('refuses an oversized file before any write', async () => {
+    const root = await makeRoot()
+    const data = Uint8Array.of(1, 2, 3)
+    await expect(saveFileVerbatim(root, { data, name: 'toobig.bin' }, 2))
+      .rejects.toMatchObject({ code: 'FILE_TOO_LARGE' })
+    await expect(readdir(join(root, 'files'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('admits a file at exactly the size limit and stays unbounded without one', async () => {
+    const root = await makeRoot()
+    const data = Uint8Array.of(1, 2, 3)
+    const ref = await saveFileVerbatim(root, { data, name: 'exact.bin' }, 3)
+    expect(ref.bytes).toBe(3)
+    const unbounded = await saveFileVerbatim(root, { data, name: 'unbounded.bin' })
+    expect(unbounded.bytes).toBe(3)
+  })
 })
 
 describe('readFileStreamVerbatim', () => {

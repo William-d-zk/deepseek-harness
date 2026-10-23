@@ -127,6 +127,7 @@ async function buildApi(
 ) {
   const ctx = new Context()
   ctx.provide('commands', { register: () => () => {} } as never)
+  ctx.provide('remoteAccess', { admitsSession: () => true } as never)
   const query = services.query ?? true
   const persistence = services.persistence ?? true
   if (query) {
