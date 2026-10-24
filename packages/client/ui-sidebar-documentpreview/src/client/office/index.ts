@@ -14,7 +14,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-files/remote'
 import { failureLine } from '../failure-line.ts'
 import { documentTabInfoFactory } from '../contract/document.ts'
-import { en, zh, type OfficePreviewKey } from './locales.ts'
+import { en, ja, es, fr, de, ru, pt, zh, type OfficePreviewKey } from './locales.ts'
 import { OfficePreviewCache, type ReadOfficeBytes, type ReadOfficeDocument } from './cache.ts'
 import { OfficeBody, type OfficeBodyInjected } from './OfficeBody.tsx'
 import { OfficeFontAction } from './OfficeFontAction.tsx'
@@ -38,7 +38,7 @@ export const OFFICE_PREVIEW_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpre
  */
 export function apply(ctx: Context, config: Config['office']): void {
   const extensions = ['doc', 'docx', 'ppt', 'pptx']
-  ctx.effect(() => ctx.locale.register('sidebarOffice', { zh, en }))
+  ctx.effect(() => ctx.locale.register('sidebarOffice', { zh, en, ja, es, fr, de, ru, pt }))
   const t = ctx.locale.bind('sidebarOffice')
   const unavailable: ReadOfficeDocument = (_file, signal) => {
     signal.throwIfAborted()
