@@ -26,7 +26,7 @@ const defaults = {
 describe('SessionController account scope', () => {
   it('denies point operations for an account the policy does not admit', async () => {
     const ctx = await context()
-    const controller = createSessionTestController(ctx, defaults)
+    const controller = await createSessionTestController(ctx, defaults)
     const session = ctx.sessions.create()
     ctx.remoteAccess.registerAccountPolicy({
       sessionAccessible: (account, sessionId) => account === 'u1' && sessionId === String(session.id),
@@ -41,7 +41,7 @@ describe('SessionController account scope', () => {
 
   it('guards every session-addressed read and write', async () => {
     const ctx = await context()
-    const controller = createSessionTestController(ctx, defaults)
+    const controller = await createSessionTestController(ctx, defaults)
     const session = ctx.sessions.create()
     ctx.remoteAccess.registerAccountPolicy({
       sessionAccessible: () => false,
@@ -70,7 +70,7 @@ describe('SessionController account scope', () => {
 
   it('filters list and search rows to the sessions the account admits', async () => {
     const ctx = await context()
-    const controller = createSessionTestController(ctx, defaults)
+    const controller = await createSessionTestController(ctx, defaults)
     const session = ctx.sessions.create()
     ctx.remoteAccess.registerAccountPolicy({
       sessionAccessible: (account, sessionId) => account === 'u1' && sessionId === String(session.id),
@@ -90,7 +90,7 @@ describe('SessionController account scope', () => {
     ctx.provide('workspaceRegistry', {
       list: () => [{ path: '/ws/alice/app', sessionIds: [session.id] }],
     } as never)
-    const controller = createSessionTestController(ctx, defaults)
+    const controller = await createSessionTestController(ctx, defaults)
     ctx.remoteAccess.registerAccountPolicy({
       sessionAccessible: (account, _sessionId, hints) => account === 'U-alice' && hints?.workspacePath === '/ws/alice/app',
       workspaceAdmissible: () => true,
@@ -104,7 +104,7 @@ describe('SessionController account scope', () => {
 
   it('honors the desktop-open deployment switch', async () => {
     const ctx = await context()
-    const controller = createSessionTestController(ctx, { ...defaults, openWorkspacePath: false })
+    const controller = await createSessionTestController(ctx, { ...defaults, openWorkspacePath: false })
 
     expect(controller.canOpenWorkspacePath()).toBe(false)
     await expect(controller.openWorkspacePath({ path: '/workspace/report.html' }, new AbortController().signal))
@@ -115,7 +115,7 @@ describe('SessionController account scope', () => {
 
   it('honors the default-model-initialization deployment switch', async () => {
     const ctx = await context()
-    const controller = createSessionTestController(ctx, { ...defaults, initializeDefaultModel: false })
+    const controller = await createSessionTestController(ctx, { ...defaults, initializeDefaultModel: false })
 
     await expect(controller.initializeDefaultModel())
       .rejects.toMatchObject({ code: 'session/default-model-init-disabled' })
