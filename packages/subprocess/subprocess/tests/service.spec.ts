@@ -84,12 +84,20 @@ describe('SubprocessRuntime seam', () => {
     process.env.SCRUB_PROBE_TOKEN = 'secret'
     process.env.SCRUB_PROBE_PASSWORD = 'secret'
     process.env.SCRUB_PROBE_PLAIN = 'visible'
+    process.env.SCRUB_PROBE_DATABASE_URL = 'postgres://user:pass@db'
+    process.env.SCRUB_PROBE_DSN = 'postgres://user:pass@db'
+    process.env.SCRUB_PROBE_WEBHOOK = 'https://hooks.example/t/abc123'
+    process.env.SCRUB_PROBE_CREDENTIALS = 'json'
     try {
       const env = scrubbedParentEnv()
       expect(env.DSH_SCRUB_PROBE).toBeUndefined()
       expect(env.dsh_scrub_probe_lower).toBeUndefined()
       expect(env.SCRUB_PROBE_TOKEN).toBeUndefined()
       expect(env.SCRUB_PROBE_PASSWORD).toBeUndefined()
+      expect(env.SCRUB_PROBE_DATABASE_URL).toBeUndefined()
+      expect(env.SCRUB_PROBE_DSN).toBeUndefined()
+      expect(env.SCRUB_PROBE_WEBHOOK).toBeUndefined()
+      expect(env.SCRUB_PROBE_CREDENTIALS).toBeUndefined()
       expect(env.SCRUB_PROBE_PLAIN).toBe('visible')
       expect(env.PATH).toBeDefined()
     } finally {
@@ -98,6 +106,10 @@ describe('SubprocessRuntime seam', () => {
       delete process.env.SCRUB_PROBE_TOKEN
       delete process.env.SCRUB_PROBE_PASSWORD
       delete process.env.SCRUB_PROBE_PLAIN
+      delete process.env.SCRUB_PROBE_DATABASE_URL
+      delete process.env.SCRUB_PROBE_DSN
+      delete process.env.SCRUB_PROBE_WEBHOOK
+      delete process.env.SCRUB_PROBE_CREDENTIALS
     }
   })
 })

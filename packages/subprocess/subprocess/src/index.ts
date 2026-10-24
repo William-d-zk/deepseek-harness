@@ -44,7 +44,13 @@ export type {
  * deliberately supplied entry survives because explicit env layers merge
  * after the scrub.
  */
-export const SENSITIVE_ENV_PATTERN = /KEY|PASSWORD|SECRET|TOKEN/i
+/**
+ * Credential-shaped environment names scrubbed from every child: API keys and
+ * passwords, plus URL-shaped names that embed credentials in the value —
+ * DATABASE_URL/DSN connection strings and webhook endpoints (whose paths or
+ * queries commonly carry bearer tokens) — and explicit CREDENTIALS names.
+ */
+export const SENSITIVE_ENV_PATTERN = /KEY|PASSWORD|SECRET|TOKEN|CREDENTIAL|DATABASE_URL|DSN|WEBHOOK/i
 
 /**
  * The ambient parent environment minus credential-shaped names and minus all
