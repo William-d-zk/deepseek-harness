@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "feedback de anotações de página",
+    "description": "Ciclo de feedback visual de anotações de página: captura de sobreposições na página, armazenamento persistente de itens pendentes, reconhecidos, resolvidos e descartados com eventos de auditoria, observação por long-poll e uma costura de verificação de resolução com ego-browser."
+  }
+}

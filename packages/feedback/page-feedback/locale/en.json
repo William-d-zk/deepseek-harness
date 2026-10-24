@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "page-feedback",
+    "description": "Visual page-annotation feedback loop: on-page overlay capture, a persistent pending, acknowledged, resolved, and dismissed store with audit events, long-poll watch, and an ego-browser resolve-verification seam."
+  }
+}

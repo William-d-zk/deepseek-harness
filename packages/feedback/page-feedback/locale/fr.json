@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "retour d’annotations de page",
+    "description": "Boucle de retour visuel d’annotations de page : capture des superpositions sur la page, magasin persistant des éléments en attente, accusés, résolus et ignorés avec événements d’audit, surveillance par long-poll et couture de vérification de résolution via ego-browser."
+  }
+}

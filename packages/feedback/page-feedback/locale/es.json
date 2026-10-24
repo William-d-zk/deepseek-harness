@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "retroalimentación de anotaciones de página",
+    "description": "Ciclo de retroalimentación visual de anotaciones de página: captura de superposiciones en la página, almacén persistente de pendientes, reconocidas, resueltas y descartadas con eventos de auditoría, vigilancia por long-poll y una costura de verificación de resolución con ego-browser."
+  }
+}

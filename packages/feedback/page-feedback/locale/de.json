@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Seiten-Anmerkungs-Feedback",
+    "description": "Visuelle Feedback-Schleife für Seitenannotationen: Overlay-Erfassung auf der Seite, ein dauerhafter Speicher für ausstehende, bestätigte, gelöste und verworfene Einträge mit Audit-Ereignissen, Long-Poll-Beobachtung und einer Ego-Browser-Verifikationsnaht."
+  }
+}
