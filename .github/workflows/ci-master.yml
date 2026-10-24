@@ -36,7 +36,7 @@ jobs:
     name: ssh helper / native artifacts
     uses: ./.github/workflows/build-exe-for-ssh-helper.yml
     with:
-      targets: node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-macos-x64
+      targets: node26-linux-x64,node26-linux-arm64,node26-macos-arm64,node26-macos-x64
 
   # These native runtime carriers are post-merge checks; release keeps all targets.
   python-runtime:

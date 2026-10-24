@@ -43,10 +43,10 @@ jobs:
           node --input-type=module <<'JS'
           import { appendFileSync } from 'node:fs';
           const runners = {
-            'node24-linux-x64': 'ubuntu-24.04',
-            'node24-linux-arm64': 'ubuntu-24.04-arm',
-            'node24-macos-arm64': 'macos-latest',
-            'node24-macos-x64': 'macos-15-intel',
+            'node26-linux-x64': 'ubuntu-24.04',
+            'node26-linux-arm64': 'ubuntu-24.04-arm',
+            'node26-macos-arm64': 'macos-latest',
+            'node26-macos-x64': 'macos-15-intel',
           };
           const raw = process.env.REQUESTED_TARGETS;
           const targets = raw ? raw.split(',').map(value => value.trim()) : Object.keys(runners);

@@ -62,7 +62,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: actions/download-artifact@v8
         with:
-          pattern: ssh-helper-node24-*
+          pattern: ssh-helper-node26-*
           path: dist-exe/ssh-helper
           merge-multiple: true
       - name: Require complete evidence from the selected source commit
