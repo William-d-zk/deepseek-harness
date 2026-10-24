@@ -190,7 +190,9 @@ export default defineConfig({
     // them, so any value written both here and in a project applies twice. The
     // inventory is the proof — a root-level `include` ran every file in both
     // lanes — so the projects below keep only what makes them different.
-    setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts'],
+    setupFiles: [
+      './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts', './scripts/test-official-listing-guard.ts',
+    ],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
     exclude: [...platformUnsupportedTests, ...coverageExemptExcludes],
     execArgv: vitestExecArgv,
@@ -209,7 +211,6 @@ export default defineConfig({
           // Node's CJS lexer (cjs_lexer::Parse) on macOS, Linux, and Windows.
           pool: 'forks',
           ...laneTestBudget,
-
           include: testIncludes,
           exclude: processBoundTests,
         },
@@ -220,7 +221,6 @@ export default defineConfig({
           name: 'process-bound',
           pool: 'forks',
           ...laneTestBudget,
-
           include: processBoundTests,
         },
       },
@@ -330,6 +330,12 @@ export default defineConfig({
         // The speech entry also imports generated Remote definitions; voice-input.e2e.ts
         // exercises the built entry, while source tests cover mountVoiceInput.
         'packages/experimental/client-ui-voice-input/src/client/index.ts',
+        // Built Web replays cover the generated Remote wiring of the card entries; their mount modules are source-covered.
+        'packages/experimental/client-ui-action-cards/src/client/index.ts',
+        'packages/experimental/client-ui-plugin-recommendations/src/client/index.ts',
+        // The permission entry binds generated Remote code; cua-permissions.e2e.ts covers
+        // its built entry, while source tests exercise mountCuaPermissions and its UI.
+        'packages/experimental/cua/src/client/index.ts',
         // The mods band entry imports the bridge's generated Remote contribution, which exists only in lib;
         // the Web snapshot exercises the built entry, while source tests cover mountModsBand.
         'packages/experimental/client-ui-claude-code-mods/src/client/index.ts',

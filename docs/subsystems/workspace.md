@@ -318,7 +318,7 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * @param request - directory path to register.
  * @returns the Workspace and whether this call created it.
  */
-@Remote('create') create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue>
+@Remote('create') async create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue>
 
 /**
  * Initialize or reuse the default Workspace during first-use startup. The
@@ -335,67 +335,69 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * @param request - Workspace identity and proposed title.
  * @returns the updated Workspace projection.
  */
-@Remote('rename') rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue>
+@Remote('rename') async rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue>
 
 /**
  * Remove one Workspace registration while retaining files and Sessions.
  * @param request - Workspace identity to remove.
  * @returns deletion confirmation.
  */
-@Remote('delete') delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue>
+@Remote('delete') async delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue>
 
 /**
  * Move one Workspace within the registry display order.
  * @param request - moved Workspace and optional anchor.
  * @returns the complete resulting Workspace order.
  */
-@Remote('insertBefore') insertBefore(request: WorkspaceInsertBeforeRequest): Promise<WorkspaceOrderValue>
+@Remote('insertBefore') async insertBefore(request: WorkspaceInsertBeforeRequest): Promise<WorkspaceOrderValue>
 
 /**
  * Move one accounted Session within a Workspace.
  * @param request - Workspace, Session, and optional anchor identities.
  * @returns the updated Workspace projection.
  */
-@Remote('insertSessionBefore') insertSessionBefore(request: WorkspaceInsertSessionBeforeRequest): Promise<WorkspaceValue>
+@Remote('insertSessionBefore') async insertSessionBefore(request: WorkspaceInsertSessionBeforeRequest): Promise<WorkspaceValue>
 
 /**
  * Hide one known Session from Workspace grouping surfaces.
  * @param request - Session identity to archive.
  * @returns the complete resulting archive set.
  */
-@Remote('archiveSession') archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue>
+@Remote('archiveSession') async archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue>
 
 /**
  * Restore one archived Session to Workspace grouping surfaces.
  * @param request - Session identity to unarchive.
  * @returns the complete resulting archive set.
  */
-@Remote('unarchiveSession') unarchiveSession(request: WorkspaceUnarchiveSessionRequest): Promise<WorkspaceArchiveValue>
+@Remote('unarchiveSession') async unarchiveSession(request: WorkspaceUnarchiveSessionRequest): Promise<WorkspaceArchiveValue>
 
 /**
  * Permanently delete one known Session's workspace accounting and durable records.
  * @param request - Session identity to delete.
  * @returns deletion confirmation.
  */
-@Remote('deleteSession') deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue>
+@Remote('deleteSession') async deleteSession(request: WorkspaceDeleteSessionRequest): Promise<WorkspaceDeleteSessionValue>
 
 /**
  * Surface one known unarchived Session ahead of unpinned Sessions.
  * @param request - Session identity to pin.
  * @returns the complete resulting pin set, most recently pinned first.
  */
-@Remote('pinSession') pinSession(request: WorkspacePinSessionRequest): Promise<WorkspacePinValue>
+@Remote('pinSession') async pinSession(request: WorkspacePinSessionRequest): Promise<WorkspacePinValue>
 
 /**
  * Remove one Session's pin without changing its saved Session order.
  * @param request - Session identity to unpin.
  * @returns the complete resulting pin set, most recently pinned first.
  */
-@Remote('unpinSession') unpinSession(request: WorkspaceUnpinSessionRequest): Promise<WorkspacePinValue>
+@Remote('unpinSession') async unpinSession(request: WorkspaceUnpinSessionRequest): Promise<WorkspacePinValue>
 
 /**
  * Stream a complete Workspace baseline followed by ordered increments. A
- * non-owner receives only the Workspaces and Sessions `allows()` admits.
+ * non-owner receives only the Workspaces and Sessions `allows()` admits; a
+ * logged-in owner receives only the Workspaces whose directory and Sessions
+ * the account policy admits.
  * When a delivered Workspace is no longer admitted at its next change or
  * the next order change, the stream sends a `replace` frame with the
  * complete filtered state instead of a `remove`, because a Client never

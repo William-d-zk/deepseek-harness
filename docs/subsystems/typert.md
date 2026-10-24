@@ -286,7 +286,7 @@ interface RemoteInvocation {
 
 ## Remote access resources
 
-Every Remote method is under the access control of [`dsh-api-remote-access`](../../packages/api/remote-access/README.md): a non-owner call is allowed only when the policy for its principal kind binds, on every resource the call touches, a role that lists the endpoint action. The package that owns an identity type merge-declares its resource kind in `TypertResourceMap`; `global`, the built-in identity-less resource, is never a kind there. The Gateway reads a kind's identities from the `resources` readers of `@Remote({ resources })` or `@RemoteScope(key, { resources })`, else from a lookup parameter or scoped Context that declares the kind as its `resource`, else from the default field registered in `typert.resources`; a call that names no resource touches `global`. The [Peer principals Agent Note](../../.agents/notes/implemented/architecture/2026-10-12-peer-principal-and-remote-access.md) owns the decision.
+Every Remote method is under the access control of [`dsh-api-remote-access`](../../packages/api/remote-access/README.md): a non-owner call is allowed only when the policy for its principal kind binds, on every resource the call touches, a role that lists the endpoint action. The package that owns an identity type merge-declares its resource kind in `TypertResourceMap`; `global`, the built-in identity-less resource, is never a kind there. The Gateway reads a kind's identities from the `resources` readers of `@Remote({ resources })` or `@RemoteScope(key, { resources })`, else from a lookup parameter or scoped Context that declares the kind as its `resource`, else from the default field or resolver registered in `typert.resources`; a call that names no resource touches `global`. The [Peer principals Agent Note](../../.agents/notes/implemented/architecture/2026-10-12-peer-principal-and-remote-access.md) owns the decision.
 
 ```ts type-equiv
 /**
@@ -334,11 +334,14 @@ interface RemoteScopeOptions<WireArgs extends readonly unknown[] = never> {
    * throw, an empty list, or an identity other than a non-empty string
    * refuses the call. For a kind without a reader, the Gateway reads the
    * identity of a scoped Context whose Host adapter declares that `resource`
-   * and of lookup parameters declaring it, else the field registered in
-   * `typert.resources`: a top-level argument or, failing that, the first
-   * object argument. A call that carries no identity touches `global`. The
-   * readers and these defaults together must name every resource the method
-   * accesses: access control never checks a resource they omit.
+   * and of lookup parameters declaring it, else the registered default of
+   * `typert.resources`: a `resolve` function receiving the validated named
+   * wire values and their ordered parameters, or a `field` naming a top-level
+   * argument or, failing that, a field of the first object argument. A
+   * throwing resolver, an array result, or a field holding an array refuses
+   * the call. A call that carries no identity touches `global`. The readers
+   * and these defaults together must name every resource the method accesses:
+   * access control never checks a resource they omit.
    */
   readonly resources?: TypertResourceReaders<WireArgs>
 }
@@ -358,7 +361,7 @@ interface RemoteMethodOptions<WireArgs extends readonly unknown[] = never> exten
 
 ## Typert registry
 
-`ctx.typert` separates current-environment descriptors, explicitly selected Remote contributions, lookup providers, scoped Context providers, and the default fields of resource kinds. A lookup provider owns the stable wire declaration and default resolver; Host composition can configure an effect-scoped synchronous or asynchronous resolver for the same key, and unloading that configuration restores the default policy. Registrations are Cordis-owned effects and return awaitable disposers.
+`ctx.typert` separates current-environment descriptors, explicitly selected Remote contributions, lookup providers, scoped Context providers, and the default fields or resolvers of resource kinds. A lookup provider owns the stable wire declaration and default resolver; Host composition can configure an effect-scoped synchronous or asynchronous resolver for the same key, and unloading that configuration restores the default policy. Registrations are Cordis-owned effects and return awaitable disposers.
 
 ```ts type-equiv
 /** Minimal Typert runtime consumed through dependency inversion. */
@@ -521,6 +524,42 @@ Registry of access policies, the Gateway's access decisions, list filtering, and
 registerPolicy<K extends Exclude<keyof PrincipalMap, 'owner'>>(kind: K, policy: RemoteAccessPolicy<PrincipalMap[K]>): () => void
 
 /**
+ * Register the deployment's account-scope policy in the caller's fiber.
+ * Every connected browser is an owner Peer, so the non-owner policy
+ * machinery never constrains one; hosts with their own login scope those
+ * callers through this policy instead, keyed by the dispatch's resolved
+ * account.
+ * @param policy - Session and Workspace questions answered per account.
+ * @returns disposer removing the policy.
+ * @throws Error when a policy is already registered.
+ */
+registerAccountPolicy(policy: RemoteAccountPolicy): () => void
+
+/**
+ * Whether the dispatch's account may see and operate one Session. True for
+ * dispatches without a login account (headless, single-user) and for
+ * deployments without a registered policy; otherwise the policy answers,
+ * and a policy failure denies (fail-closed). Synchronous by contract: a
+ * guard that awaits could reorder the microtasks a Remote answer's own
+ * scheduling depends on.
+ * @param sessionId - the Session the call reads or operates.
+ * @param hints - registry-derived ownership hints (a workspace path), when
+ *   the caller can supply them; the policy uses them to admit Sessions its
+ *   own records do not carry.
+ * @returns false only when a logged-in dispatch's policy refuses it.
+ */
+admitsSession(sessionId: string, hints?: RemoteSessionHints): boolean
+
+/**
+ * Whether the dispatch's account may register a Workspace over one
+ * directory, with the same headless, unscoped, synchronous, and fail-closed
+ * semantics as {@link admitsSession}.
+ * @param path - fully qualified Workspace directory.
+ * @returns false only when a logged-in dispatch's policy refuses it.
+ */
+admitsWorkspacePath(path: string): boolean
+
+/**
  * Report that the bindings or condition answers for `principal` may have
  * changed. Business packages call this on every grant, revocation, mode
  * change, and expiry; open snapshots re-push, and the next failure of each
@@ -561,10 +600,9 @@ decide(request: RemoteAccessRequest<Principal>): RemoteAccessDecision
 allows(resource: RemoteAccessResource): boolean
 
 /**
- * The baseline a page opens with before its snapshot stream connects. A
- * business package rendering a non-owner page assigns this value to
- * {@link REMOTE_ACCESS_SNAPSHOT_KEY} after every index injection row,
- * replacing the owner baseline the webServer index carries.
+ * The baseline a page opens with before its snapshot stream connects; every
+ * index the webServer renders carries it under
+ * {@link REMOTE_ACCESS_SNAPSHOT_KEY} for the Peer the page speaks for.
  * @param principal - the page's caller identity.
  * @returns the owner baseline for the owner; otherwise the principal's current grants.
  */

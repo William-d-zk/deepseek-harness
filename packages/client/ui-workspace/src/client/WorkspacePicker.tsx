@@ -10,7 +10,7 @@
  */
 import type { ReactNode, RefObject } from 'react'
 import { workspaceNamespaceFilter, workspacePathInNamespace } from './navigation.ts'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Button, IconFolderCloseRegular, IconFolderOpenOutlineRegular, Menu, Modal, type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -20,6 +20,7 @@ import type {
 import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller/default-workspace'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/slots.ts'
+import { distinguishingPathSuffixes } from './path-suffix.ts'
 import css from './WorkspacePicker.module.css'
 
 const ADD_WORKSPACE = '::add-workspace'
@@ -115,14 +116,37 @@ export function WorkspacePickFlow({
   // AppCreator namespace isolation: only workspaces of the caller's
   // namespace are offered (see workspaceNamespaceFilter in navigation.ts).
   const namespace = workspaceNamespaceFilter()
-  const visibleWorkspaces = namespace === undefined
-    ? workspaces
-    : workspaces.filter(workspace => workspacePathInNamespace(workspace.path, namespace))
-  const pinAdd = !addOnly && visibleWorkspaces.length > 0
-  const items: MenuEntry[] = pinAdd
-    ? visibleWorkspaces.map(workspace => ({
+  const pinAdd = !addOnly && workspaces.length > 0
+  // The resolved name, not `t`, is the memo dependency: the bound seat keeps
+  // its identity across a language switch.
+  const defaultWorkspaceName = t('workspace.defaultName')
+  const listed = useMemo(() => {
+    if (!pinAdd) return []
+    const visible = namespace === undefined
+      ? workspaces
+      : workspaces.filter(workspace => workspacePathInNamespace(workspace.path, namespace))
+    const rows = visible.map(workspace => ({
       id: workspace.workspaceId,
-      label: workspaceDisplayTitle(workspace.title, t('workspace.defaultName')),
+      title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
+      path: workspace.path,
+    }))
+    const suffixes = distinguishingPathSuffixes(rows)
+    return rows.map(row => ({ ...row, suffix: suffixes.get(row.id) }))
+  }, [defaultWorkspaceName, namespace, pinAdd, workspaces])
+  const items: MenuEntry[] = pinAdd
+    ? listed.map(({ id, title, path, suffix }) => ({
+      id,
+      // The title gives way first, so the suffix that tells the rows apart
+      // stays visible; the native tooltip carries the full path.
+      label: suffix === undefined
+        ? title
+        : (
+          <span className={css.disambiguated} title={path}>
+            <span className={css.title}>{title}</span>
+            {' '}
+            <span className={css.pathSuffix}>{suffix}</span>
+          </span>
+        ),
       icon: <IconFolderCloseRegular size={16} />,
       disabled: flowBusy,
     }))
