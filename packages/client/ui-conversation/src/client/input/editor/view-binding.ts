@@ -16,7 +16,7 @@ import { DRAFT_SUBMITTED_TAG } from './runtime.ts'
  * @param destination - stable, focusable non-text element that retains the composer's keyboard position.
  * @returns the update-listener cleanup.
  */
-export function installDraftKeyboardDismissal(editor: LexicalEditor, destination: RefObject<HTMLElement>): () => void {
+export function installDraftKeyboardDismissal(editor: LexicalEditor, destination: RefObject<HTMLElement | null>): () => void {
   return editor.registerUpdateListener(({ editorState, tags }) => {
     if (!tags.has(DRAFT_SUBMITTED_TAG) || !isMobileDevice()) return
     const input = editor.getRootElement()
