@@ -67,4 +67,6 @@ git push fork-ssh Alioth                                    # pre-push 钩子会
 timeout 25 git ls-remote fork refs/heads/Alioth             # 内网镜像只读但会自 GitHub 拉取，约 10 分钟内跟上
 ```
 
-残余失败判据（2026-09-24 基线）：`plugin-manager` 3 个真实 GitHub SSH 安装测试在本机不可达；`hmr`/`skill-office`/`ptc-runtime-python`/`session-snapshot` 少数用例在全量并行下超时，单独复跑全过。Node 26.10.0 工具链（fork 8c6e7f7fe5）另引入一个与合并无关的确定性失败：`session-persistence-jsonl/tests/generation.spec.ts` 的 "accepts a valid append on a zstd target created by another migration"——`node:zlib` 的 zstd 帧字节随 Node 版本变化，上游 CI（Node 24）全绿，本机单跑也挂，合并前 HEAD 同样挂（2026-10-16 复核）。
+残余失败判据（2026-10-25 基线，dsh 0.2.1-rc.3 合并后复核）：`plugin-manager` 真实 GitHub SSH 安装测试在本机不可达（本轮 1 个："offers approval for a real git-hosted package pnpm refused to prepare"）；`hmr`/`skill-office`/`ptc-runtime-python`/`session-snapshot` 少数用例在全量并行下超时，单独复跑全过。Node 26.10.0 工具链（fork 8c6e7f7fe5）另引入一个与合并无关的确定性失败：`session-persistence-jsonl/tests/generation.spec.ts` 的 "accepts a valid append on a zstd target created by another migration"——`node:zlib` 的 zstd 帧字节随 Node 版本变化，上游 CI（Node 24）全绿，本机单跑也挂，合并前 HEAD 同样挂（2026-10-16 复核）。macOS 本机新增一个上游代码的清理竞态：`plugin-market/tests/repository-cache.spec.ts` 的 "refuses a repository that a completed fetch left past its limit" 在 afterEach `rmSync` 上确定性 ENOTEMPTY（缓存实现的异步删除与清理竞速，Linux CI 绿，代码与上游逐字节一致，不修）。
+
+下游链接覆盖的补充陷阱：`env -u CI pnpm install --force` 重链后，`node_modules/.vitest-cache`（及 `.vite-temp`）仍缓存指向 `../dsh-alioth` store 的旧模块解析路径，vitest 会继续加载第二个 React（报 "Cannot read properties of null (reading 'useCallback')" 且栈路径在 dsh-alioth 下）——重链后必须连带删除这两个缓存目录再跑测试。
