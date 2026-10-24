@@ -61,9 +61,15 @@ function route(options: { mode?: string; author?: string; repository?: string; f
 describe('Node compatibility self-hosted routing', () => {
   it('runs the build-backed compatibility minor and declares it for installed CLI users', () => {
     expect(job.strategy.matrix.include.filter(entry => String(entry.node) === BUILD_BACKED_NODE_COMPAT_VERSION)).toHaveLength(1)
-    for (const manifest of ['package.json', 'apps/cli/package.json']) {
+    // The root declares the fork's wide support range; the CLI package keeps
+    // the upstream-shaped compatibility floor for installed-CLI users.
+    const expectedEngines: Record<string, string> = {
+      'package.json': '^22.19.0 || >=24.0.0',
+      'apps/cli/package.json': `>=${BUILD_BACKED_NODE_COMPAT_VERSION}.0`,
+    }
+    for (const [manifest, engines] of Object.entries(expectedEngines)) {
       const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', manifest), 'utf8')) as { engines: { node: string } }
-      expect(pkg.engines.node).toBe(`>=${BUILD_BACKED_NODE_COMPAT_VERSION}.0`)
+      expect(pkg.engines.node).toBe(engines)
     }
   })
 

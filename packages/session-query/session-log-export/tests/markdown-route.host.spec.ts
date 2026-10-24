@@ -87,6 +87,9 @@ async function mounted(
   const ctx = new Context()
   onTestFinished(async () => { await ctx.fiber.dispose() })
   ctx.provide('commands', { register: () => () => {} } as never)
+  // The fiber starts only with the declared injections present; the access
+  // service exists in every real composition (route.host.spec.ts does the same).
+  ctx.provide('remoteAccess', { admitsSession: () => true } as never)
   if (sessionQuery !== undefined) ctx.provide('sessionQuery', sessionQuery as never)
   if (persistence !== undefined) ctx.provide('sessionPersistence', persistence as SessionPersistence)
   const connection = new HostConnectionService(ctx, [], {} as BrowserAuth)

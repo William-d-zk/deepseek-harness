@@ -899,7 +899,7 @@ describe('CI workflow', () => {
     ] as const) {
       expect(runInNewContext(master.if, { github: { event_name: event, ref: 'refs/heads/master' }, inputs: { suite } }, { timeout: 1000 })).toBe(expected)
     }
-    expect(master.with).toEqual({ targets: 'node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-macos-x64' })
+    expect(master.with).toEqual({ targets: 'node26-linux-x64,node26-linux-arm64,node26-macos-arm64,node26-macos-x64' })
     const workflow = loadWorkflow('.github/workflows/build-exe-for-ssh-helper.yml')
     if (!isRecord(workflow.on)) throw new Error('SSH builder must define triggers')
     expect(Object.keys(workflow.on).sort()).toEqual(['workflow_call', 'workflow_dispatch'])
@@ -978,8 +978,8 @@ describe('CI workflow', () => {
       return JSON.parse(output.slice('matrix='.length))
     }
     expect(evaluate('')).toHaveLength(4)
-    expect(evaluate('node24-linux-arm64')).toEqual([{ target: 'node24-linux-arm64', runner: 'ubuntu-24.04-arm' }])
-    for (const invalid of ['node24-linux-arm64,node24-linux-arm64', 'node24-win-x64', 'node24-linux-x64,', ' ']) {
+    expect(evaluate('node26-linux-arm64')).toEqual([{ target: 'node26-linux-arm64', runner: 'ubuntu-24.04-arm' }])
+    for (const invalid of ['node26-linux-arm64,node26-linux-arm64', 'node26-win-x64', 'node26-linux-x64,', ' ']) {
       expect(() => evaluate(invalid)).toThrow('Invalid or duplicate')
     }
   })
@@ -1015,11 +1015,11 @@ describe('Runtime and LLM e2e Blacksmith routing', () => {
     const workflow = loadWorkflow('.github/workflows/build-exe-for-python-sdk.yml')
     const build = workflowJob(workflow, 'build')
     for (const [target, runner, variable, blacksmith, releaseRunner] of [
-      ['node24-linux-x64', 'ubuntu-latest', 'DSH_CI_FAILOVER_LINUX', 'blacksmith-2vcpu-ubuntu-2404', 'ubuntu-latest'],
-      ['node24-win-x64', 'windows-2025', 'DSH_CI_FAILOVER_WINDOWS', 'blacksmith-2vcpu-windows-2025', 'windows-2025'],
-      ['node24-linux-arm64', 'ubuntu-24.04-arm', 'DSH_CI_FAILOVER_LINUX', 'ubuntu-24.04-arm', 'ubuntu-24.04-arm'],
-      ['node24-macos-arm64', 'macos-latest', 'DSH_CI_FAILOVER_LINUX', 'macos-latest', 'macos-15-xlarge'],
-      ['node24-macos-x64', 'macos-15-intel', 'DSH_CI_FAILOVER_LINUX', 'macos-15-intel', 'macos-15-large'],
+      ['node26-linux-x64', 'ubuntu-latest', 'DSH_CI_FAILOVER_LINUX', 'blacksmith-2vcpu-ubuntu-2404', 'ubuntu-latest'],
+      ['node26-win-x64', 'windows-2025', 'DSH_CI_FAILOVER_WINDOWS', 'blacksmith-2vcpu-windows-2025', 'windows-2025'],
+      ['node26-linux-arm64', 'ubuntu-24.04-arm', 'DSH_CI_FAILOVER_LINUX', 'ubuntu-24.04-arm', 'ubuntu-24.04-arm'],
+      ['node26-macos-arm64', 'macos-latest', 'DSH_CI_FAILOVER_LINUX', 'macos-latest', 'macos-15-xlarge'],
+      ['node26-macos-x64', 'macos-15-intel', 'DSH_CI_FAILOVER_LINUX', 'macos-15-intel', 'macos-15-large'],
     ] as const) {
       for (const ci of [false, true]) {
         for (const release of [false, true]) {
@@ -1106,7 +1106,7 @@ describe('Python release workflows', () => {
     expect(build).toMatchObject({
       uses: './.github/workflows/build-exe-for-python-sdk.yml',
       with: {
-        targets: 'node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-macos-x64,node24-win-x64',
+        targets: 'node26-linux-x64,node26-linux-arm64,node26-macos-arm64,node26-macos-x64,node26-win-x64',
         release: true,
       },
     })
@@ -1210,10 +1210,10 @@ describe('Python release workflows', () => {
     const workflowJson = JSON.stringify(workflow)
     expect(workflowJson).toContain('macosx_14_0_arm64')
     expect(workflowJson).toContain('macosx_14_0_x86_64')
-    expect(workflowJson).toContain('node24-macos-x64')
+    expect(workflowJson).toContain('node26-macos-x64')
     expect(workflowJson).toContain('macos-15-intel')
     expect(workflowJson).toContain('win_amd64')
-    expect(workflowJson).toContain('node24-win-x64')
+    expect(workflowJson).toContain('node26-win-x64')
     expect(workflowJson).toContain('windows-2025')
     expect(workflowJson).toContain('dist-python/$SDK_WHEEL')
     expect(workflowJson).toContain('dist-python/$RUNTIME_WHEEL')
@@ -1292,7 +1292,7 @@ describe('Python release workflows', () => {
     }
 
     expect(macosX64.tags).toEqual(['macos-x64'])
-    expect(macosX64.variables).toMatchObject({ PKG_TARGET: 'node24-macos-x64', PLATFORM: 'macos-x64' })
+    expect(macosX64.variables).toMatchObject({ PKG_TARGET: 'node26-macos-x64', PLATFORM: 'macos-x64' })
     expect(publish.needs).toContainEqual({ job: 'runtime-macos-x64', artifacts: true })
     expect(JSON.stringify(publish.script)).toContain('macosx_14_0_x86_64.whl')
   })
@@ -1307,7 +1307,7 @@ describe('Python release workflows', () => {
     }
 
     expect(windows.tags).toEqual(['windows-x64'])
-    expect(windows.variables).toMatchObject({ PKG_TARGET: 'node24-win-x64', PLATFORM: 'win-x64' })
+    expect(windows.variables).toMatchObject({ PKG_TARGET: 'node26-win-x64', PLATFORM: 'win-x64' })
     expect(JSON.stringify(windows.before_script)).toContain('.ci-python\\\\Scripts')
     expect(JSON.stringify(windows.before_script)).toContain('[IO.Path]::PathSeparator')
     expect(JSON.stringify(windows.script)).toContain('win_amd64.whl')

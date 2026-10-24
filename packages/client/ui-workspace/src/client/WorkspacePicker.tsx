@@ -116,23 +116,25 @@ export function WorkspacePickFlow({
   // AppCreator namespace isolation: only workspaces of the caller's
   // namespace are offered (see workspaceNamespaceFilter in navigation.ts).
   const namespace = workspaceNamespaceFilter()
-  const pinAdd = !addOnly && workspaces.length > 0
+  // AppCreator namespace isolation: only workspaces of the caller's
+  // namespace are offered (see workspaceNamespaceFilter in navigation.ts).
+  const visibleWorkspaces = useMemo(() => namespace === undefined
+    ? workspaces
+    : workspaces.filter(workspace => workspacePathInNamespace(workspace.path, namespace)), [namespace, workspaces])
+  const pinAdd = !addOnly && visibleWorkspaces.length > 0
   // The resolved name, not `t`, is the memo dependency: the bound seat keeps
   // its identity across a language switch.
   const defaultWorkspaceName = t('workspace.defaultName')
   const listed = useMemo(() => {
     if (!pinAdd) return []
-    const visible = namespace === undefined
-      ? workspaces
-      : workspaces.filter(workspace => workspacePathInNamespace(workspace.path, namespace))
-    const rows = visible.map(workspace => ({
+    const rows = visibleWorkspaces.map(workspace => ({
       id: workspace.workspaceId,
       title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
       path: workspace.path,
     }))
     const suffixes = distinguishingPathSuffixes(rows)
     return rows.map(row => ({ ...row, suffix: suffixes.get(row.id) }))
-  }, [defaultWorkspaceName, namespace, pinAdd, workspaces])
+  }, [defaultWorkspaceName, pinAdd, visibleWorkspaces])
   const items: MenuEntry[] = pinAdd
     ? listed.map(({ id, title, path, suffix }) => ({
       id,
