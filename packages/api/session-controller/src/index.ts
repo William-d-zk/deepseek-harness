@@ -16,7 +16,7 @@ import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-ses
 import { Remote, RemoteError, TypertRemoteService, principalOf } from '@deepseek-ai/dsh-typert-protocol'
 import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
-import type { RemoteAccessAction } from '@deepseek-ai/dsh-api-remote-access'
+import type { RemoteAccessAction, RemoteSessionHints } from '@deepseek-ai/dsh-api-remote-access'
 import {
   ApiSessionAgentController,
   inspectApiSession,
@@ -273,8 +273,25 @@ export class SessionController extends TypertRemoteService {
    * @param sessionId - the Session the call reads or operates.
    * @param action - canonical endpoint of the guarded call, for the refusal details.
    */
+  /**
+   * The Workspace directory one Session is accounted to, when the registry
+   * knows it. Hints let the account policy derive ownership for Sessions its
+   * own records do not carry (a Session inside the caller's own workspace
+   * tree); a missing or minimal registry simply yields no hint.
+   */
+  private workspaceHintOf(sessionId: SessionId): RemoteSessionHints | undefined {
+    try {
+      for (const workspace of this.ctx.workspaceRegistry.list()) {
+        if (workspace.sessionIds.includes(sessionId)) return { workspacePath: workspace.path }
+      }
+    } catch {
+      return undefined
+    }
+    return undefined
+  }
+
   private admit(sessionId: SessionId, action: RemoteAccessAction): void {
-    if (!this.ctx.remoteAccess.admitsSession(sessionId)) {
+    if (!this.ctx.remoteAccess.admitsSession(sessionId, this.workspaceHintOf(sessionId))) {
       throw new RemoteError('remote-access/denied', 'Session is not accessible to this account', {
         action,
         reason: 'account-scope',
@@ -283,8 +300,8 @@ export class SessionController extends TypertRemoteService {
   }
 
   /** Whether the dispatch's account may see the Session, without the refusal. */
-  private admitsSession(sessionId: SessionId): boolean {
-    return this.ctx.remoteAccess.admitsSession(sessionId)
+  private admitsSession(sessionId: SessionId, hints?: RemoteSessionHints): boolean {
+    return this.ctx.remoteAccess.admitsSession(sessionId, hints ?? this.workspaceHintOf(sessionId))
   }
 
   /**
@@ -320,7 +337,7 @@ export class SessionController extends TypertRemoteService {
     const items = await this.listState.list(signal)
     return {
       items: items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId })
-        && this.admitsSession(item.sessionId)),
+        && this.admitsSession(item.sessionId, this.workspaceHintOf(item.sessionId))),
     }
   }
 
@@ -338,7 +355,7 @@ export class SessionController extends TypertRemoteService {
     return {
       ...result,
       items: result.items.filter(item => this.ctx.remoteAccess.allows({ kind: 'session', id: item.sessionId })
-        && this.admitsSession(item.sessionId)),
+        && this.admitsSession(item.sessionId, this.workspaceHintOf(item.sessionId))),
     }
   }
 

@@ -82,6 +82,22 @@ describe('remoteAccess.admitsSession', () => {
     await dispose()
   })
 
+  it('passes caller hints to the policy', async () => {
+    const { access, dispose } = service({ currentAccount: () => 'u1' })
+    const seen: Array<string | undefined> = []
+    access.registerAccountPolicy(policy({
+      sessionAccessible: (_account, _sessionId, hints) => {
+        seen.push(hints?.workspacePath)
+        return hints?.workspacePath === '/own-ws'
+      },
+    }))
+    expect(asAccount('u1', () => access.admitsSession('s-1'))).toBe(false)
+    expect(asAccount('u1', () => access.admitsSession('s-2', { workspacePath: '/own-ws' }))).toBe(true)
+    expect(asAccount('u1', () => access.admitsSession('s-3', { workspacePath: '/elsewhere' }))).toBe(false)
+    expect(seen).toEqual([undefined, '/own-ws', '/elsewhere'])
+    await dispose()
+  })
+
   it('denies fail-closed when the policy throws', async () => {
     const { access, dispose } = service({ currentAccount: () => 'u1' })
     access.registerAccountPolicy(policy({ sessionAccessible: () => { throw new Error('policy blew up') } }))

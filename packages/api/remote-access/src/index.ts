@@ -26,6 +26,7 @@ import type {
   RemoteAccessPolicy,
   RemoteAccessRequest,
   RemoteAccountPolicy,
+  RemoteSessionHints,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -215,7 +216,8 @@ export class RemoteAccessService extends TypertRemoteService {
       throw new Error('remote access: an account policy is already registered')
     }
     this.accountPolicy = policy
-    return this.ctx.effect(() => () => { this.accountPolicy = undefined }, 'remoteAccess.registerAccountPolicy()')
+    const dispose = this.ctx.effect(() => () => { this.accountPolicy = undefined }, 'remoteAccess.registerAccountPolicy()')
+    return () => { void dispose() }
   }
 
   /**
@@ -228,12 +230,12 @@ export class RemoteAccessService extends TypertRemoteService {
    * @param sessionId - the Session the call reads or operates.
    * @returns false only when a logged-in dispatch's policy refuses it.
    */
-  admitsSession(sessionId: string): boolean {
+  admitsSession(sessionId: string, hints?: RemoteSessionHints): boolean {
     const account = this.currentAccount()
     const policy = this.accountPolicy
     if (account === null || policy === undefined) return true
     try {
-      return policy.sessionAccessible(account, sessionId)
+      return policy.sessionAccessible(account, sessionId, hints)
     } catch (error) {
       this.ctx.logger.warn('remote access: the account policy failed a Session check; denying it')
       this.ctx.logger.warn(error)

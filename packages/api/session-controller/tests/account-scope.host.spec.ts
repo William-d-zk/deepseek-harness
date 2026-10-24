@@ -84,6 +84,24 @@ describe('SessionController account scope', () => {
       .resolves.toMatchObject({ items: [] })
   })
 
+  it('hands the workspace hint to the policy for unmirrored sessions', async () => {
+    const ctx = await context()
+    const session = ctx.sessions.create()
+    ctx.provide('workspaceRegistry', {
+      list: () => [{ path: '/ws/alice/app', sessionIds: [session.id] }],
+    } as never)
+    const controller = createSessionTestController(ctx, defaults)
+    ctx.remoteAccess.registerAccountPolicy({
+      sessionAccessible: (account, _sessionId, hints) => account === 'U-alice' && hints?.workspacePath === '/ws/alice/app',
+      workspaceAdmissible: () => true,
+    })
+
+    await expect(asAccount('U-alice', () => controller.projections({ sessionId: session.id }, new AbortController().signal)))
+      .resolves.toBeDefined()
+    await expect(asAccount('U-bob', () => controller.projections({ sessionId: session.id }, new AbortController().signal)))
+      .rejects.toMatchObject({ code: 'remote-access/denied' })
+  })
+
   it('honors the desktop-open deployment switch', async () => {
     const ctx = await context()
     const controller = createSessionTestController(ctx, { ...defaults, openWorkspacePath: false })
