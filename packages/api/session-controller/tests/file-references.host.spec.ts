@@ -24,7 +24,7 @@ describe('SessionFileReferences', () => {
     ctx.provide('fileReferences', { list } as never)
     ctx.provide('remoteAccess', { admitsSession: () => false } as never)
     const adapter = new SessionFileReferences(ctx)
-    const agent = { id: 'target' } as unknown as Agent
+    const agent = { id: 'target' } as Agent
 
     expect(() => adapter.list(agent, 'sr', new AbortController().signal)).toThrow(
       expect.objectContaining({ code: 'remote-access/denied' }),

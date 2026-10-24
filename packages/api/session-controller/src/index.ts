@@ -12,7 +12,6 @@ import { canOpenNativePath, nativeFileManager, nativeFileApplications, openNativ
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
-import type { SessionInspection } from '@deepseek-ai/dsh-session-persistence'
 import { Remote, RemoteError, TypertRemoteService, principalOf, type TypertResourceResolveInput } from '@deepseek-ai/dsh-typert-protocol'
 import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
@@ -104,6 +103,16 @@ function resolveSessionResource({ args, parameters }: TypertResourceResolveInput
       : address.kind === 'session' ? address.sessionId : address.childSessionId)
   }
   return undefined
+}
+
+/**
+ * Resolve the Session whose access one history request reads, walking past
+ * the child Session whose transcript a subagent address reads.
+ * @param request - history request carrying the durable address.
+ * @returns the Session whose access the read requires.
+ */
+function addressedSession(request: { readonly address: SessionAddress }): SessionId {
+  return request.address.kind === 'session' ? request.address.sessionId : request.address.childSessionId
 }
 
 /** Session Controller deployment policy. */
@@ -204,7 +213,6 @@ export class SessionController extends TypertRemoteService {
   protected async [Service.init](): Promise<void> {
     const ctx = this.ctx
     ctx.typert.resources.register('session', { resolve: resolveSessionResource })
-    installModelSelectionProjection(ctx)
     this.agents = new ApiSessionAgentController(ctx)
     this.agents.initialize()
     this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
@@ -315,28 +323,6 @@ export class SessionController extends TypertRemoteService {
   /** Whether the dispatch's account may see the Session, without the refusal. */
   private admitsSession(sessionId: SessionId, hints?: RemoteSessionHints): boolean {
     return this.ctx.remoteAccess.admitsSession(sessionId, hints ?? this.workspaceHintOf(sessionId))
-  }
-
-  /**
-   * Inspect one attached or persisted Session without activating its Agent.
-   * @param sessionId - durable Session identity.
-   * @param signal - optional caller cancellation for persistence reads.
-   * @returns the current attached state or persisted header and event prefix.
-   */
-  inspect(
-    sessionId: SessionId,
-    signal?: AbortSignal,
-  ): Promise<SessionInspection> {
-    const attached = this.ctx.sessions.get(sessionId)
-    if (attached !== undefined) {
-      return Promise.resolve({
-        meta: attached.header,
-        inheritedEventCount: attached.inheritedEventCount,
-        // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
-        events: attached.snapshotEvents(),
-      })
-    }
-    return inspectApiSession(this.ctx, sessionId, signal)
   }
 
   /**
