@@ -4,6 +4,7 @@
  * @module @deepseek-ai/dsh-sandbox-local/profiles
  */
 
+import { existsSync } from 'node:fs'
 import { grantArgs as landlockGrantArgs } from '@deepseek-ai/node-addon-system/landlock-run'
 import { writableRoots } from '@deepseek-ai/dsh-sandbox'
 import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
@@ -28,7 +29,13 @@ export const DEFAULT_SYSTEM_READONLY_ROOTS: readonly string[] = [
  */
 export function confinedReadRoots(policy: SandboxPolicy): readonly string[] {
   const writable = new Set(writableRoots(policy))
-  return [...new Set([...DEFAULT_SYSTEM_READONLY_ROOTS, ...(policy.readRoots ?? [])])]
+  // System roots are conveniences, not requirements: a host without 32-bit
+  // libraries has no /lib32, and the runners refuse rule paths they cannot
+  // open — so a hardcoded absent system root would fail the whole confinement
+  // closed. Deployment readRoots, by contrast, must exist (an operator naming
+  // a missing root is a configuration error worth failing on).
+  const system = DEFAULT_SYSTEM_READONLY_ROOTS.filter(root => existsSync(root))
+  return [...new Set([...system, ...(policy.readRoots ?? [])])]
     .filter(root => !writable.has(root))
 }
 

@@ -20,7 +20,8 @@ import {
   LocalSandboxProvider,
 } from '@deepseek-ai/dsh-sandbox-local'
 import type { Config } from '@deepseek-ai/dsh-sandbox-local'
-import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from '../src/profiles.ts'
+import { existsSync } from 'node:fs'
+import { bwrapProfileArgs, DEFAULT_SYSTEM_READONLY_ROOTS, landlockProfileArgs, seatbeltProfileArgs } from '../src/profiles.ts'
 
 const RO: SandboxPolicy = { mode: 'read-only', workspaceRoot: '/ws' }
 const WW: SandboxPolicy = { mode: 'workspace-write', workspaceRoot: '/ws' }
@@ -78,8 +79,12 @@ describe('read-isolation profiles (readRoots)', () => {
   it('bwrap drops the whole-root bind and ro-binds the allow-list plus system roots', () => {
     const args = bwrapProfileArgs(ISOLATED_WW)
     expect(args).not.toEqual(expect.arrayContaining(['--ro-bind', '/', '/']))
+    // system roots are existence-filtered (a host without 32-bit libs has no
+    // /lib32), so count relative to this host: every existing default system
+    // root made it in, plus /srv/model, minus the writable workspace.
+    const existingSystem = DEFAULT_SYSTEM_READONLY_ROOTS.filter(root => existsSync(root))
     const roCount = args.filter(a => a === '--ro-bind').length
-    expect(roCount).toBe(12) // 11 system roots + /srv/model
+    expect(roCount).toBe(existingSystem.length + 1) // + /srv/model
     expect(args).toEqual(expect.arrayContaining(['--bind', '/srv/tenants/t1', '/srv/tenants/t1']))
   })
 
