@@ -21,7 +21,7 @@
  * @module @deepseek-ai/dsh-sandbox-policy
  */
 
-import { isAbsolute } from 'node:path'
+import { dirname, isAbsolute } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { z as zod } from 'zod'
 import z from '@deepseek-ai/schemastery'
@@ -54,6 +54,31 @@ function resolveAdditionalWritableRoots(roots: readonly string[] | undefined): r
     }
   }
   return Object.freeze([...new Set(roots)])
+}
+
+/** Validate and detach the configured read-isolation roots (undefined when none configured). */
+function resolveReadOnlyRoots(roots: readonly string[] | undefined): readonly string[] | undefined {
+  if (roots === undefined || roots.length === 0) return undefined
+  for (const root of roots) {
+    if (!isAbsolute(root) || root.includes('\0')) {
+      throw new Error('sandbox-policy: readOnlyRoots entries must be absolute execution-world paths')
+    }
+  }
+  return Object.freeze([...new Set(roots)])
+}
+
+/** Walk `levels` path segments up from `path`, stopping at the filesystem root.
+ * Pure string walk — the caller's spelling (including `..` segments a symlink-
+ * sensitive cwd carries) survives to the enforcing provider, which owns
+ * canonicalization; level 0 returns the path unchanged. */
+function ancestorOf(path: string, levels: number): string {
+  let current = path
+  for (let level = 0; level < levels; level++) {
+    const parent = dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+  return current
 }
 
 /** Render the policy without claiming which capabilities are mounted. */
@@ -108,6 +133,25 @@ export interface Config {
    * `read-only`.
    */
   additionalWritableRoots?: string[]
+  /**
+   * Levels to walk UP from a calling session's cwd to its workspace-write
+   * root (default 0 = the cwd itself). A multi-tenant deployment whose
+   * sessions live at `<root>/<tenant>/work/<item>` names 2 to make the whole
+   * tenant tree the writable (and, with `readOnlyRoots`, readable) boundary.
+   * Walking stops at the filesystem root; the fallback root for agentless
+   * calls is never walked.
+   */
+  workspaceAncestorLevels?: number
+  /**
+   * Extra read-only roots for confined process runners (default: none
+   * configured = the runners' historical whole-root read). A NON-EMPTY list
+   * switches every resolved policy into read-isolation mode: the runners'
+   * read allow-list becomes these roots plus each policy's writable roots
+   * (writable implies readable), and everything else — other tenants' data,
+   * session logs, credential files — is unreadable to confined executions.
+   * Absolute execution-world paths.
+   */
+  readOnlyRoots?: string[]
 }
 
 /** Inputs that select the sandbox policy for one capability call. */
@@ -139,6 +183,8 @@ export class SandboxPolicyService extends Service {
     // stored root is always absolute regardless of how it was supplied.
     workspaceRoot: z.string(),
     additionalWritableRoots: z.array(z.string()).default([]),
+    workspaceAncestorLevels: z.natural().default(0),
+    readOnlyRoots: z.array(z.string()).default([]),
   })
 
   static inject = ['sessionProjections']
@@ -149,6 +195,10 @@ export class SandboxPolicyService extends Service {
   readonly workspaceRoot: string
   /** The frozen extra writable directories shared by every resolved policy, or `undefined` for none. */
   readonly additionalWritableRoots: readonly string[] | undefined
+  /** Levels to walk up from a session cwd to its workspace root (0 = the cwd). */
+  readonly workspaceAncestorLevels: number
+  /** Extra read-only roots; a non-empty list switches resolved policies into read isolation. */
+  readonly readOnlyRoots: readonly string[] | undefined
   private sandboxModeProjectionHandle!: ProjectionHandle<SandboxMode | null>
 
   constructor(ctx: Context, config: Config) {
@@ -159,6 +209,9 @@ export class SandboxPolicyService extends Service {
     this.defaultMode = config.mode as SandboxMode
     this.workspaceRoot = resolveWorkspaceRoot(config.workspaceRoot ?? process.cwd())
     this.additionalWritableRoots = resolveAdditionalWritableRoots(config.additionalWritableRoots)
+    this.workspaceAncestorLevels = config.workspaceAncestorLevels as number
+    const readOnly = resolveReadOnlyRoots(config.readOnlyRoots)
+    this.readOnlyRoots = readOnly === undefined ? undefined : readOnly
   }
 
   protected async [Service.init](): Promise<void> {
@@ -196,10 +249,26 @@ export class SandboxPolicyService extends Service {
    */
   resolve(request: SandboxPolicyRequest = {}): SandboxExecutionPolicy {
     const { session } = request
+    const fallback = this.workspaceRoot
+    // The agentless fallback is never walked: no session owns it, so the
+    // configured root stands as-is. A session's root climbs to the boundary
+    // its deployment named (workspaceAncestorLevels).
+    const sessionCwd = session?.header.cwd
+    const workspaceRoot = resolveWorkspaceRoot(
+      sessionCwd === undefined ? fallback : ancestorOf(sessionCwd, this.workspaceAncestorLevels),
+    )
+    const additionalWritableRoots = this.additionalWritableRoots
     return {
       mode: request.mode ?? (session === undefined ? undefined : this.overrideOf(session)) ?? this.defaultMode,
-      workspaceRoot: resolveWorkspaceRoot(session?.header.cwd ?? this.workspaceRoot),
-      ...this.additionalWritableRoots === undefined ? {} : { additionalWritableRoots: this.additionalWritableRoots },
+      workspaceRoot,
+      ...additionalWritableRoots === undefined ? {} : { additionalWritableRoots },
+      ...this.readOnlyRoots === undefined ? {} : {
+        readRoots: Object.freeze([...new Set([
+          ...this.readOnlyRoots,
+          workspaceRoot,
+          ...(additionalWritableRoots ?? []),
+        ])]),
+      },
       ...session === undefined ? {} : { sessionId: session.id },
     }
   }

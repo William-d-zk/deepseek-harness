@@ -9,12 +9,43 @@ import { workspaceWritableRoots, writableRoots } from '@deepseek-ai/dsh-sandbox'
 import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 
 /**
+ * System roots a read-confined execution still needs: the dynamic toolchain
+ * (interpreters, loaders, coreutils), system configuration, and package
+ * prefixes. Deployments with toolchains elsewhere (e.g. a user-local install)
+ * add entries through the provider's `additionalReadOnlyRoots`.
+ */
+export const DEFAULT_SYSTEM_READONLY_ROOTS: readonly string[] = [
+  '/usr', '/bin', '/sbin', '/lib', '/lib32', '/lib64', '/libx32',
+  '/opt', '/etc', '/usr/local', '/var',
+]
+
+/**
+ * The effective read allow-list for one policy: the system roots, the
+ * provider's configured extras, and the policy's own `readRoots`, minus the
+ * writable roots (those are granted read-write separately; binding a path
+ * both read-only and read-write would race on mount order).
+ * @param policy - the file-effect policy, already carrying the merged readRoots.
+ */
+export function confinedReadRoots(policy: SandboxPolicy): readonly string[] {
+  const writable = new Set(writableRoots(policy))
+  return [...new Set([...DEFAULT_SYSTEM_READONLY_ROOTS, ...(policy.readRoots ?? [])])]
+    .filter(root => !writable.has(root))
+}
+
+/**
  * Build the bwrap profile arguments for one file-effect policy.
  * @param policy - file-effect policy to express as bwrap mounts.
  * @returns profile arguments before the trailing separator and command argv.
  */
 export function bwrapProfileArgs(policy: SandboxPolicy): string[] {
-  const args = ['--ro-bind', '/', '/', '--dev', '/dev', '--unshare-pid', '--proc', '/proc', '--die-with-parent']
+  const args: string[] = []
+  if (policy.readRoots === undefined) {
+    // Historical default: the whole root stays readable (write confinement only).
+    args.push('--ro-bind', '/', '/')
+  } else {
+    for (const root of confinedReadRoots(policy)) args.push('--ro-bind', root, root)
+  }
+  args.push('--dev', '/dev', '--unshare-pid', '--proc', '/proc', '--die-with-parent')
   if (policy.mode === 'workspace-write') {
     args.push('--tmpfs', '/tmp')
     for (const root of workspaceWritableRoots(policy)) args.push('--bind', root, root)
@@ -32,7 +63,11 @@ export function landlockProfileArgs(policy: SandboxPolicy): string[] {
   if (policy.mode === 'workspace-write') {
     readWrite.push('/tmp', ...workspaceWritableRoots(policy))
   }
-  return landlockGrantArgs({ readOnly: ['/'], readWrite })
+  // Landlock rulesets are allow-lists: with readRoots the list is the whole
+  // grant (everything unlisted is denied); without it the historical whole-root
+  // read grant keeps write-only confinement.
+  const readOnly = policy.readRoots === undefined ? ['/'] : confinedReadRoots(policy)
+  return landlockGrantArgs({ readOnly, readWrite })
 }
 
 /** Quote one path as an SBPL string literal. */
