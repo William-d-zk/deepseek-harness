@@ -63,6 +63,14 @@ export interface Config {
   runnerFailureSignatures?: string[]
   /** Positive timeout for each functional probe; zero would mean unbounded to Node. */
   probeTimeoutMs?: number
+  /**
+   * Extra read-only roots a read-confined execution (a policy carrying
+   * `readRoots`) still needs beyond the built-in system list — e.g. a
+   * user-local toolchain prefix the confined commands execute from. Ignored
+   * when the policy carries no `readRoots` (whole-root read stands). Absolute
+   * execution-world paths, canonicalized once at load.
+   */
+  additionalReadOnlyRoots?: string[]
 }
 
 /** Probe whether `bwrap` can create the profile; the provider caches the bounded result. */
@@ -255,6 +263,7 @@ export class LocalSandboxProvider extends SandboxProvider {
     runnerCommand: z.array(z.string()).default([]),
     runnerFailureSignatures: z.array(z.string()).default([]),
     probeTimeoutMs: z.natural().default(5_000),
+    additionalReadOnlyRoots: z.array(z.string()).default([]),
   })
 
   /** Test hook (mirrors the bash executors' `internals`). */
@@ -263,6 +272,8 @@ export class LocalSandboxProvider extends SandboxProvider {
   private readonly runnerCommand: string[] | undefined
   private readonly configuredRunnerFailureSignatures: string[]
   private readonly probeTimeoutMs: number
+  /** Canonicalized provider-configured extra read-only roots (see Config). */
+  private readonly additionalReadOnlyRoots: readonly string[]
   /** Cached chain verdict; undefined until the first confined wrap needs it. */
   private selectedRunner: SelectedRunner | 'unavailable' | undefined
   /**
@@ -294,6 +305,9 @@ export class LocalSandboxProvider extends SandboxProvider {
     this.runnerCommand = runner.length > 0 ? runner : undefined
     this.configuredRunnerFailureSignatures = runnerFailureSignatures
     this.probeTimeoutMs = config.probeTimeoutMs as number
+    this.additionalReadOnlyRoots = Object.freeze(
+      [...new Set((config.additionalReadOnlyRoots as string[]).map(root => canonicalPath(root)))],
+    )
     assertPositiveFinite('probeTimeoutMs', this.probeTimeoutMs)
     // An operator-supplied runner does not use the ACL backend. The registry
     // remains optional and may be mounted after this provider.
@@ -325,6 +339,9 @@ export class LocalSandboxProvider extends SandboxProvider {
   async confine(argv: readonly string[], policy: SandboxPolicy, signal?: AbortSignal): Promise<ConfinedArgv> {
     signal?.throwIfAborted()
     policy = { ...policy, workspaceRoot: canonicalPath(policy.workspaceRoot) }
+    if (policy.readRoots !== undefined && this.additionalReadOnlyRoots.length > 0) {
+      policy = { ...policy, readRoots: [...new Set([...policy.readRoots, ...this.additionalReadOnlyRoots])] }
+    }
     if (this.runnerCommand !== undefined) {
       return Promise.resolve<ConfinedArgv>({
         argv: [...this.runnerCommand, ...bwrapProfileArgs(policy), '--', ...argv],

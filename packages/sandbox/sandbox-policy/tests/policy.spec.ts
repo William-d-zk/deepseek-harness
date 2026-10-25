@@ -15,7 +15,7 @@ import SandboxPolicyService, { SANDBOX_MODES, setSandboxMode } from '@deepseek-a
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt, { renderContextSnapshot, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 
-async function mounted(config: { mode?: 'read-only' | 'workspace-write' | 'danger-full-access'; workspaceRoot?: string } = {}) {
+async function mounted(config: { mode?: 'read-only' | 'workspace-write' | 'danger-full-access'; workspaceRoot?: string; workspaceAncestorLevels?: number; readOnlyRoots?: string[] } = {}) {
   const ctx = new Context()
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SandboxPolicyService, config)
@@ -41,6 +41,55 @@ async function policyContext(ctx: Context, activeSession: Session): Promise<stri
   return (await ctx.systemPrompt.assemble({ agent: agentFor(activeSession) }))
     .contexts.find(context => context.name === 'sandbox:policy')?.text
 }
+
+describe('read isolation (workspaceAncestorLevels + readOnlyRoots)', () => {
+  it('walks the named ancestor levels from the session cwd, preserving its spelling', async () => {
+    const ctx = await mounted({ mode: 'workspace-write', workspaceRoot: '/fallback', workspaceAncestorLevels: 2 })
+    const sess = session('sess-tenant', '/srv/tenants/t1/work/item')
+    expect(ctx.sandboxPolicy.resolve({ session: sess })).toEqual({
+      mode: 'workspace-write',
+      workspaceRoot: '/srv/tenants/t1',
+      sessionId: 'sess-tenant',
+    })
+    await ctx.fiber.dispose()
+  })
+
+  it('stops at the filesystem root instead of overshooting', async () => {
+    const ctx = await mounted({ mode: 'workspace-write', workspaceRoot: '/fallback', workspaceAncestorLevels: 9 })
+    const sess = session('sess-deep', '/a/b')
+    expect(ctx.sandboxPolicy.resolve({ session: sess }).workspaceRoot).toBe('/')
+    await ctx.fiber.dispose()
+  })
+
+  it('never walks the agentless fallback root', async () => {
+    const ctx = await mounted({ mode: 'workspace-write', workspaceRoot: '/fallback', workspaceAncestorLevels: 3 })
+    expect(ctx.sandboxPolicy.resolve().workspaceRoot).toBe('/fallback')
+    await ctx.fiber.dispose()
+  })
+
+  it('readOnlyRoots switches policies into read isolation, merging the writable root', async () => {
+    const ctx = await mounted({
+      mode: 'workspace-write',
+      workspaceRoot: '/fallback',
+      readOnlyRoots: ['/srv/model'],
+    })
+    const sess = session('sess-iso', '/srv/tenants/t1/work/item')
+    const policy = ctx.sandboxPolicy.resolve({ session: sess })
+    expect(policy.workspaceRoot).toBe('/srv/tenants/t1/work/item')
+    expect(policy.readRoots).toContain('/srv/model')
+    expect(policy.readRoots).toContain('/srv/tenants/t1/work/item') // writable implies readable
+    expect(Object.isFrozen(policy.readRoots)).toBe(true)
+    expect(ctx.sandboxPolicy.resolve().readRoots).toContain('/fallback')
+    await ctx.fiber.dispose()
+  })
+
+  it('no readOnlyRoots keeps the historical policy shape (no readRoots key)', async () => {
+    const ctx = await mounted({ mode: 'workspace-write', workspaceRoot: '/fallback' })
+    const sess = session('sess-open', '/ws')
+    expect(ctx.sandboxPolicy.resolve({ session: sess })).not.toHaveProperty('readRoots')
+    await ctx.fiber.dispose()
+  })
+})
 
 describe('SandboxPolicyService', () => {
   it('defaults to read-only under the process cwd', async () => {

@@ -43,6 +43,18 @@ export interface SandboxExecutionPolicy {
   /** Absolute root directory `workspace-write` may write under. */
   workspaceRoot: string
   /**
+   * Read allow-list for confined process runners (bwrap, Landlock). Absent —
+   * the default — keeps the historical behavior: the whole filesystem stays
+   * readable and only writes are confined. Present, every path OUTSIDE the
+   * list (plus the runner's own system roots and the writable roots, which
+   * are implicitly readable) is unreadable to the confined execution: the
+   * deployment opts into complete read isolation, e.g. a multi-tenant host
+   * confining each session to its own data tree. Entries are absolute
+   * execution-world paths; the enforcing provider rejects roots it cannot
+   * open.
+   */
+  readRoots?: readonly string[]
+  /**
    * Opaque identity of the calling session (the branded `dsh-session`
    * SessionId). Backends key per-session state off it (e.g. windows-acl gives
    * each live session/workspace pair a random private temp directory and SID,

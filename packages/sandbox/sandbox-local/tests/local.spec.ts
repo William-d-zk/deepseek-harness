@@ -72,6 +72,31 @@ function fakeSeatbeltExec(status: number): string {
 /** The seatbelt read-only profile — every seatbelt profile starts with these forms. */
 const SEATBELT_RO_PROFILE = '(version 1) (allow default) (deny file-write*) (allow file-write* (literal "/dev/null"))'
 
+describe('read-isolation profiles (readRoots)', () => {
+  const ISOLATED_WW = { mode: 'workspace-write', workspaceRoot: '/srv/tenants/t1', readRoots: ['/srv/tenants/t1', '/srv/model'] } as const
+
+  it('bwrap drops the whole-root bind and ro-binds the allow-list plus system roots', () => {
+    const args = bwrapProfileArgs(ISOLATED_WW)
+    expect(args).not.toEqual(expect.arrayContaining(['--ro-bind', '/', '/']))
+    const roCount = args.filter(a => a === '--ro-bind').length
+    expect(roCount).toBe(12) // 11 system roots + /srv/model
+    expect(args).toEqual(expect.arrayContaining(['--bind', '/srv/tenants/t1', '/srv/tenants/t1']))
+  })
+
+  it('landlock grants exactly the allow-list reads (no whole-root read)', () => {
+    const args = landlockProfileArgs(ISOLATED_WW)
+    expect(args).toEqual(expect.arrayContaining(['--ro', '/srv/model']))
+    expect(args).not.toEqual(expect.arrayContaining(['--ro', '/']))
+  })
+
+  it('without readRoots the historical whole-root read grant stands', () => {
+    expect(bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/x' })).toEqual(
+      expect.arrayContaining(['--ro-bind', '/', '/']))
+    expect(landlockProfileArgs({ mode: 'read-only', workspaceRoot: '/x' })).toEqual(
+      expect.arrayContaining(['--ro', '/']))
+  })
+})
+
 describe('profile dialects', () => {
   it('bwrap read-only: whole tree read-only with fresh /dev and private PID-scoped /proc, no writable mounts', () => {
     expect(bwrapProfileArgs(RO)).toEqual(['--ro-bind', '/', '/', '--dev', '/dev', '--unshare-pid', '--proc', '/proc', '--die-with-parent'])
