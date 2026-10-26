@@ -34,12 +34,15 @@ import {
 } from '@deepseek-ai/node-addon-system/landlock-run'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { SandboxProvider, SandboxUnavailableError, canonicalPath } from '@deepseek-ai/dsh-sandbox'
+import { writableRoots as writableRootsOf, SandboxProvider, SandboxUnavailableError, canonicalPath } from '@deepseek-ai/dsh-sandbox'
 import type { ConfinedArgv, ConfinedSandboxMode, RunnerFailureRule, SandboxEnforcement, SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { AclWriteGrant, assertTempRootOutsideWorkspace, registerAclDiagnosisSkill, tempWriteSid, workspaceWriteSid } from '@deepseek-ai/dsh-sandbox-windows-acl'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
-import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from './profiles.ts'
+import {
+  bwrapProfileArgs, landlockProfileArgs, seatbeltDenyPaths, seatbeltProfileArgs,
+  SEATBELT_SYSTEM_READONLY_ROOTS,
+} from './profiles.ts'
 
 /** Plugin config. All optional — `static Config` supplies the defaults. */
 export interface Config {
@@ -365,7 +368,9 @@ export class LocalSandboxProvider extends SandboxProvider {
     switch (runner) {
       case 'bwrap': return ['bwrap', ...bwrapProfileArgs(policy)]
       case 'landlock': return [this.landlockLauncher(), ...landlockProfileArgs(policy)]
-      case 'seatbelt': return [this.seatbeltExec(), ...seatbeltProfileArgs(policy)]
+      case 'seatbelt': return [this.seatbeltExec(), ...seatbeltProfileArgs(policy, policy.readRoots === undefined
+        ? undefined
+        : seatbeltDenyPaths([...SEATBELT_SYSTEM_READONLY_ROOTS, ...(policy.readRoots ?? []), ...writableRootsOf(policy)]))]
       case 'windows-acl': return this.windowsAclRunnerArgv(policy)
       default: return assertNever(runner)
     }

@@ -21,7 +21,10 @@ import {
 } from '@deepseek-ai/dsh-sandbox-local'
 import type { Config } from '@deepseek-ai/dsh-sandbox-local'
 import { existsSync } from 'node:fs'
-import { bwrapProfileArgs, DEFAULT_SYSTEM_READONLY_ROOTS, landlockProfileArgs, seatbeltProfileArgs } from '../src/profiles.ts'
+import {
+  bwrapProfileArgs, DEFAULT_SYSTEM_READONLY_ROOTS, landlockProfileArgs,
+  SEATBELT_SYSTEM_READONLY_ROOTS, seatbeltDenyPaths, seatbeltProfileArgs,
+} from '../src/profiles.ts'
 
 const RO: SandboxPolicy = { mode: 'read-only', workspaceRoot: '/ws' }
 const WW: SandboxPolicy = { mode: 'workspace-write', workspaceRoot: '/ws' }
@@ -72,6 +75,91 @@ function fakeSeatbeltExec(status: number): string {
 
 /** The seatbelt read-only profile — every seatbelt profile starts with these forms. */
 const SEATBELT_RO_PROFILE = '(version 1) (allow default) (deny file-write*) (allow file-write* (literal "/dev/null"))'
+
+describe('seatbelt read isolation (readRoots)', () => {
+  const ISOLATED = { mode: 'workspace-write', workspaceRoot: '/tmp/dsh-sbx-t-ws', readRoots: ['/tmp/dsh-sbx-t-ws', '/tmp/dsh-sbx-t-ro'] } as const
+
+  it('without readRoots the historical write-only profile stands', () => {
+    const args = seatbeltProfileArgs({ mode: 'read-only', workspaceRoot: '/x' })
+    expect(args.join(' ')).toContain('(allow default)')
+    expect(args.join(' ')).toContain('(deny file-write*)')
+  })
+
+  it('with readRoots the profile flips to deny-default + whole-root read + deny cover', () => {
+    const args = seatbeltProfileArgs(ISOLATED, ['/Users/alice', '/Volumes'])
+    const text = args.join(' ')
+    expect(text).toContain('(deny default)')
+    expect(text).toContain('(allow file-read* (subpath "/"))')
+    expect(text).toContain('(deny file-read* (subpath "/Users/alice"))')
+    expect(text).toContain('(deny file-read* (subpath "/Volumes"))')
+    for (const op of ['process-exec', 'process-fork', 'sysctl-read', 'mach-lookup', 'signal', 'ipc-posix-shm', 'network*']) {
+      expect(text).toContain(`(allow ${op})`)
+    }
+  })
+
+  it('seatbeltDenyPaths denies uncovered siblings/files and recurses partial covers', () => {
+    const tree: Record<string, readonly { name: string, directory: boolean }[]> = {
+      '/': [
+        { name: 'Users', directory: true }, { name: 'Volumes', directory: true },
+        { name: 'Library', directory: true }, { name: 'usr', directory: true },
+        { name: 'readme.txt', directory: false },
+      ],
+      '/Users': [
+        { name: 'alice', directory: true }, { name: 'bob', directory: true },
+        { name: 'shared.key', directory: false },
+      ],
+      '/Users/bob': [
+        { name: 'work', directory: true }, { name: 'secrets', directory: true },
+      ],
+    }
+    const denies = seatbeltDenyPaths(
+      ['/Users/bob/work', '/usr', '/Library'],
+      dir => tree[dir] ?? [],
+    )
+    expect(denies).toEqual(expect.arrayContaining([
+      '/Users/alice', '/Users/bob/secrets', '/Users/shared.key', '/Volumes', '/readme.txt',
+    ]))
+    expect(denies).not.toContain('/Users/bob')
+    expect(denies).not.toContain('/Users/bob/work')
+    expect(denies).not.toContain('/usr')
+  })
+
+  it.skipIf(process.platform !== 'darwin')(
+    'live sandbox-exec: the generated profile executes, grants reads, and denies the cover (macOS only)',
+    async () => {
+      const { mkdtempSync, writeFileSync, rmSync, mkdirSync } = await import('node:fs')
+      const { homedir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { spawnSync } = await import('node:child_process')
+      const base = mkdtempSync(join(homedir(), 'dsh-sbx-live-'))
+      try {
+        const ws = join(base, 'ws')
+        mkdirSync(ws)
+        writeFileSync(join(ws, 'inside.txt'), 'inside-ok\n')
+        writeFileSync(join(base, 'outside.txt'), 'outside-secret\n')
+        const policy = { mode: 'workspace-write' as const, workspaceRoot: ws, readRoots: [ws] }
+        const denies = seatbeltDenyPaths([...SEATBELT_SYSTEM_READONLY_ROOTS, ws, ws])
+        const args = seatbeltProfileArgs(policy, denies)
+        const run = (cmd: string[]) => {
+          const r = spawnSync('/usr/bin/sandbox-exec', [...args, '--', ...cmd], { encoding: 'utf8', timeout: 10_000, cwd: ws })
+          return { status: r.status, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() }
+        }
+        const exec = run(['/bin/sh', '-c', 'echo live-ok'])
+        expect(exec.status).toBe(0)
+        expect(exec.out).toContain('live-ok')
+        const inside = run(['/bin/sh', '-c', `cat ${join(ws, 'inside.txt')}`])
+        expect(inside.out).toContain('inside-ok')
+        const outside = run(['/bin/sh', '-c', `cat ${join(base, 'outside.txt')}; echo "rc=$?"`])
+        expect(outside.err).toContain('Operation not permitted')
+        expect(outside.out).toContain('rc=1')
+        expect(outside.out).not.toContain('outside-secret')
+      } finally {
+        rmSync(base, { recursive: true, force: true })
+      }
+    },
+    20_000,
+  )
+})
 
 describe('read-isolation profiles (readRoots)', () => {
   const ISOLATED_WW = { mode: 'workspace-write', workspaceRoot: '/srv/tenants/t1', readRoots: ['/srv/tenants/t1', '/srv/model'] } as const

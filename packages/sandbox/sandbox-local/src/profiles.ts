@@ -4,7 +4,7 @@
  * @module @deepseek-ai/dsh-sandbox-local/profiles
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { grantArgs as landlockGrantArgs } from '@deepseek-ai/node-addon-system/landlock-run'
 import { writableRoots } from '@deepseek-ai/dsh-sandbox'
 import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
@@ -37,6 +37,69 @@ export function confinedReadRoots(policy: SandboxPolicy): readonly string[] {
   const system = DEFAULT_SYSTEM_READONLY_ROOTS.filter(root => existsSync(root))
   return [...new Set([...system, ...(policy.readRoots ?? [])])]
     .filter(root => !writable.has(root))
+}
+
+/**
+ * Seatbelt's read-isolation dialect differs from the allow-list runners: a
+ * pure deny-default allow-list cannot express a working confinement on this
+ * platform (the child aborts at exec — scattered startup reads outside any
+ * enumerable root set), while a whole-root read grant with narrow deny
+ * subpaths IS enforced (verified on macOS 27: reads under a denied subpath
+ * answer EPERM, deeper allows override shallower denies by specificity). The
+ * system set therefore lists the roots that stay readable wholesale.
+ */
+export const SEATBELT_SYSTEM_READONLY_ROOTS: readonly string[] = [
+  ...DEFAULT_SYSTEM_READONLY_ROOTS, '/System', '/Applications', '/Library', '/private',
+  '/opt', '/etc', '/tmp', '/var',
+]
+
+/**
+ * The minimal deny-subpath cover of the filesystem outside `granted`: every
+ * directory sibling that no granted root covers gets denied; a directory that
+ * only PARTIALLY covers granted roots recurses instead (so `/Users` with a
+ * granted workspace below denies the other users, not itself). Directory
+ * listing is injected so the walk stays pure for tests.
+ * @param granted - canonical absolute roots that must stay readable.
+ * @param listDir - directory listing (children of one directory, no paths).
+ * @returns deny subpaths for the Seatbelt profile, deduplicated, sorted.
+ */
+export interface SeatbeltDenyEntry {
+  /** Child name (no path). */
+  readonly name: string
+  /** Whether the child is a directory — files are denied directly, only directories recurse. */
+  readonly directory: boolean
+}
+
+export function seatbeltDenyPaths(
+  granted: readonly string[],
+  listDir: (dir: string) => readonly SeatbeltDenyEntry[] = dir => readdirSync(dir, { withFileTypes: true })
+    .map(entry => ({ name: entry.name, directory: entry.isDirectory() })),
+): string[] {
+  const wanted = [...new Set(granted)]
+  const denies = new Set<string>()
+  const walk = (dir: string): void => {
+    let children: readonly SeatbeltDenyEntry[]
+    try {
+      children = listDir(dir)
+    } catch {
+      denies.add(dir)
+      return
+    }
+    for (const child of children) {
+      const full = dir.endsWith('/') ? `${dir}${child.name}` : `${dir}/${child.name}`
+      const covers = wanted.some(root => full === root || full.startsWith(`${root}/`))
+      if (covers) continue
+      if (!child.directory) {
+        denies.add(full)
+        continue
+      }
+      const inside = wanted.some(root => root.startsWith(`${full}/`))
+      if (inside) walk(full)
+      else denies.add(full)
+    }
+  }
+  walk('/')
+  return [...denies].sort()
 }
 
 /**
@@ -90,7 +153,29 @@ function sbplString(path: string): string {
  * @param policy - file-effect policy to express as an SBPL profile.
  * @returns sandbox-exec arguments before the trailing separator and command argv.
  */
-export function seatbeltProfileArgs(policy: SandboxPolicy): string[] {
+export function seatbeltProfileArgs(policy: SandboxPolicy, denyPaths?: readonly string[]): string[] {
+  if (policy.readRoots !== undefined) {
+    // Read-isolation dialect (see SEATBELT_SYSTEM_READONLY_ROOTS): deny
+    // default for every other effect class — exec/fork/sysctl/mach/signal/
+    // ipc are the startup set a denied default still needs, network stays
+    // open because the allow-list runners (Landlock, bwrap) do not confine
+    // it either — then the whole root stays readable minus the caller's
+    // computed deny cover. Write grants ride the existing writable form.
+    const forms = [
+      '(version 1)',
+      '(deny default)',
+      '(allow process-exec)', '(allow process-fork)', '(allow sysctl-read)',
+      '(allow mach-lookup)', '(allow signal)', '(allow ipc-posix-shm)', '(allow network*)',
+      '(allow file-read* (subpath "/"))',
+    ]
+    for (const deny of denyPaths ?? []) forms.push(`(deny file-read* (subpath ${sbplString(deny)}))`)
+    const writable = writableRoots(policy)
+    if (writable.length > 0) {
+      forms.push(`(allow file-write* ${writable.map(root => `(subpath ${sbplString(root)})`).join(' ')})`)
+    }
+    forms.push(`(allow file-write* (literal ${sbplString('/dev/null')}))`)
+    return ['-p', forms.join(' ')]
+  }
   const forms = ['(version 1)', '(allow default)', '(deny file-write*)', `(allow file-write* (literal ${sbplString('/dev/null')}))`]
   const roots = writableRoots(policy)
   if (roots.length > 0) {
