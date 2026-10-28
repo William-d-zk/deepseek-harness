@@ -21,6 +21,11 @@ git rev-list --left-right --count upstream/master...HEAD   # 上游领先/本地
 git worktree add --detach /tmp/wt-merge HEAD
 ln -sfn "$PWD/node_modules" /tmp/wt-merge/node_modules   # 必需，否则 tsx 门禁解析不到依赖
 cd /tmp/wt-merge && git merge --no-commit --no-ff upstream/master
+# ⚠️ worktree 里提交一律定向 git add <paths>，绝不能 git add -A：worktree 根的
+# node_modules 链接与包级 node_modules 链接会作为仓库同路径被暂存（2026-10-28
+# 曾把 382 个链接提交进合并提交，ff 后主 checkout 的真实 node_modules 目录被
+# 自引用符号链接替换、tsx 全挂；修复＝git rm --cached 全部链接 + commit --amend
+# + 删链接 + corepack pnpm install 重装）。
 ```
 冲突取舍：门禁脚本/基线取**含实现**的一侧；测试文件取语义更优的一侧。双语配对哈希侧车（`docs/*.i18n.yaml`）两侧都会变：按合并后实际内容用 `node_modules/.bin/tsx scripts/verify-translation-pairing.ts --write <pair>.md` 重录。pre-commit 的 translation pairing 钩子校验 staged 字节，`--write` 之后必须重新 `git add` 再 commit，否则首次 commit 被拦。落回主 checkout 用 `git merge --ff-only <sha>`（先 `git restore --staged --worktree -- <同名脏文件>`，否则 ff 被拒）。
 
@@ -67,6 +72,6 @@ git push fork-ssh Alioth                                    # pre-push 钩子会
 timeout 25 git ls-remote fork refs/heads/Alioth             # 内网镜像只读但会自 GitHub 拉取，约 10 分钟内跟上
 ```
 
-残余失败判据（2026-10-25 基线，dsh 0.2.1-rc.3 合并后复核）：`plugin-manager` 真实 GitHub SSH 安装测试在本机不可达（本轮 1 个："offers approval for a real git-hosted package pnpm refused to prepare"）；`hmr`/`skill-office`/`ptc-runtime-python`/`session-snapshot` 少数用例在全量并行下超时，单独复跑全过。Node 26.10.0 工具链（fork 8c6e7f7fe5）另引入一个与合并无关的确定性失败：`session-persistence-jsonl/tests/generation.spec.ts` 的 "accepts a valid append on a zstd target created by another migration"——`node:zlib` 的 zstd 帧字节随 Node 版本变化，上游 CI（Node 24）全绿，本机单跑也挂，合并前 HEAD 同样挂（2026-10-16 复核）。macOS 本机新增一个上游代码的清理竞态：`plugin-market/tests/repository-cache.spec.ts` 的 "refuses a repository that a completed fetch left past its limit" 在 afterEach `rmSync` 上确定性 ENOTEMPTY（缓存实现的异步删除与清理竞速，Linux CI 绿，代码与上游逐字节一致，不修）。
+残余失败判据（2026-10-28 基线，dsh 0.2.2-alpha.2 合并后复核）：`plugin-manager` 真实 GitHub SSH 安装测试在本机不可达（本轮 1 个："offers approval for a real git-hosted package pnpm refused to prepare"）；`hmr`/`skill-office`/`ptc-runtime-python`/`session-snapshot` 少数用例在全量并行下超时，单独复跑全过。Node 26 工具链的确定性失败两个（上游 CI Node 24 全绿，本机单跑也挂，非合并回归）：`session-persistence-jsonl/tests/generation.spec.ts` 的 zstd 帧用例（`node:zlib` 帧字节随 Node 版本变化）；`forge-github/tests/gh.spec.ts` 的 "rejects when gh outlives the timeout"——execa 在 **活 `cancelSignal` + `timeout`** 组合下于 Node 26 不做超时击杀、等子进程自然退出才结算（无 cancelSignal 或信号已中止都正常，Node 24 正常；已用探针脚本隔离复现）。macOS 本机另有一个上游代码的清理竞态：`plugin-market/tests/repository-cache.spec.ts` 的 "refuses a repository that a completed fetch left past its limit" 在 afterEach `rmSync` 上确定性 ENOTEMPTY（缓存实现的异步删除与清理竞速，Linux CI 绿，代码与上游逐字节一致，不修）。
 
 下游链接覆盖的补充陷阱：`env -u CI pnpm install --force` 重链后，`node_modules/.vitest-cache`（及 `.vite-temp`）仍缓存指向 `../dsh-alioth` store 的旧模块解析路径，vitest 会继续加载第二个 React（报 "Cannot read properties of null (reading 'useCallback')" 且栈路径在 dsh-alioth 下）——重链后必须连带删除这两个缓存目录再跑测试。
