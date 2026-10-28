@@ -163,8 +163,17 @@ for (const [file, jobIds] of [['release.yml', ['dependencies', 'pack']], ['relea
   })
 }
 
-it.each(['release-publish.yml', 'release-vendor-publish.yml'])('keeps %s manual and entirely hosted', (file) => {
+it.each(['release-publish.yml', 'release-vendor-publish.yml'])('keeps %s manual and hosted-only or master-routed', (file) => {
   const publish = workflow(file)
   expect(Object.keys(publish.on)).toEqual(['workflow_dispatch'])
-  for (const job of Object.values(publish.jobs)) expect(job['runs-on']).toBe(hosted)
+  for (const job of Object.values(publish.jobs)) {
+    // Upstream's release-publish pack lane routes workflow_dispatch/master
+    // runs onto the self-hosted pool; every other job and the whole vendor
+    // publish stay hosted.
+    expect(job['runs-on'] === hosted
+      || (file === 'release-publish.yml'
+        && String(job['runs-on']).includes("vars.DSH_CI_FAILOVER_LINUX == 'selfhosted'")
+        && String(job['runs-on']).includes("github.event_name == 'workflow_dispatch'")))
+      .toBe(true)
+  }
 })

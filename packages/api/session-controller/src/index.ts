@@ -714,7 +714,7 @@ export class SessionController extends TypertRemoteService {
    * @returns a sequenced baseline, cached hints when migration is deferred, or null when absent.
    */
   @Remote('projections')
-  projections(request: SessionProjectionsRequest, signal: AbortSignal): Promise<SessionProjectionsValue> {
+  async projections(request: SessionProjectionsRequest, signal: AbortSignal): Promise<SessionProjectionsValue> {
     this.admit(request.sessionId, 'session/projections')
     return this.historyController.projections(request, signal)
   }

@@ -1021,7 +1021,7 @@ workspaceDesktop(): { name: string; available: boolean; fileManager: 'finder' | 
  * @param signal - cancellation for the Session read.
  * @returns a sequenced baseline, cached hints when migration is deferred, or null when absent.
  */
-@Remote('projections') projections(request: SessionProjectionsRequest, signal: AbortSignal): Promise<SessionProjectionsValue>
+@Remote('projections') async projections(request: SessionProjectionsRequest, signal: AbortSignal): Promise<SessionProjectionsValue>
 
 /**
  * Stream a complete live-control baseline followed by replacement frames.

@@ -2619,6 +2619,16 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [],
       },
       {
+        signature: 'readonly workspaceAncestorLevels: number',
+        description: 'Levels to walk up from a session cwd to its workspace root (0 = the cwd).',
+        parameters: [],
+      },
+      {
+        signature: 'readonly readOnlyRoots: readonly string[] | undefined',
+        description: 'Extra read-only roots; a non-empty list switches resolved policies into read isolation.',
+        parameters: [],
+      },
+      {
         signature: 'resolve(request: SandboxPolicyRequest = {}): SandboxExecutionPolicy',
         description: 'Resolve the complete policy for one capability call. An approved explicit mode outranks the session\'s last `sandbox/mode` event, which outranks the deployment default. A session cwd is its workspace-write boundary; the configured root is the fallback for agentless calls and sessions without a cwd.',
         parameters: [{ name: 'request', description: 'optional session and approved mode override.' }],
@@ -2834,7 +2844,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'a complete opening snapshot followed by gap-free durable event frames and optional cursorless assistant-stream frames.',
       },
       {
-        signature: '@Remote(\'projections\') projections(request: SessionProjectionsRequest, signal: AbortSignal): Promise<SessionProjectionsValue>',
+        signature: '@Remote(\'projections\') async projections(request: SessionProjectionsRequest, signal: AbortSignal): Promise<SessionProjectionsValue>',
         description: 'Read exact projections, returning cached hints only when migration is required.',
         parameters: [{ name: 'request', description: 'Session whose current values are required.' }, { name: 'signal', description: 'cancellation for the Session read.' }],
         returns: 'a sequenced baseline, cached hints when migration is deferred, or null when absent.',
@@ -8031,7 +8041,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SandboxExecutionPolicy',
-    declaration: 'export interface SandboxExecutionPolicy {\n    mode: SandboxMode;\n    workspaceRoot: string;\n    additionalWritableRoots?: readonly string[];\n    sessionId?: SessionId;\n}',
+    declaration: 'export interface SandboxExecutionPolicy {\n    mode: SandboxMode;\n    workspaceRoot: string;\n    additionalWritableRoots?: readonly string[];\n    readRoots?: readonly string[];\n    sessionId?: SessionId;\n}',
   },
   {
     name: 'SandboxMode',

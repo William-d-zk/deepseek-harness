@@ -1882,7 +1882,7 @@ describe('WorkspaceBrowser', () => {
     vi.useFakeTimers()
     try {
       const b = mount()
-      const add = screen.getByRole('button', { name: '添加工作区' })
+      const add = screen.getByRole('button', { name: '选择工作区' })
       const header = add.closest('[class*="sectionHeader"]')!
       // jsdom observes the motion opt-in; the browser suite measures the resulting transitions.
       const motionEnabled = () => header.className.includes('searchSpacingMotion')
@@ -1904,7 +1904,7 @@ describe('WorkspaceBrowser', () => {
       expect(motionEnabled()).toBe(true)
       expect(input.value).toBe('')
       expect(screen.getByRole('button', { name: '搜索会话' }).getAttribute('aria-expanded')).toBe('false')
-      expect(screen.getByRole('button', { name: '添加工作区' })).toBe(add)
+      expect(screen.getByRole('button', { name: '选择工作区' })).toBe(add)
       expect(add.closest('[class*="sectionHeader"]')).toBe(header)
       rerender(b, { wide: false })
       fireEvent.click(screen.getByRole('button', { name: '搜索会话' }))
@@ -1912,7 +1912,7 @@ describe('WorkspaceBrowser', () => {
       expect(motionEnabled()).toBe(false)
       act(() => { vi.advanceTimersByTime(300) })
       expect(document.activeElement).toBe(screen.getByPlaceholderText('搜索会话名称'))
-      expect(screen.getByRole('button', { name: '添加工作区' })).toBe(add)
+      expect(screen.getByRole('button', { name: '选择工作区' })).toBe(add)
     } finally {
       vi.useRealTimers()
     }
@@ -1920,12 +1920,12 @@ describe('WorkspaceBrowser', () => {
 
   it('preserves the add button and its open directory flow across rail layout changes', () => {
     const b = mount({ wide: false })
-    const add = screen.getByRole('button', { name: '添加工作区' })
+    const add = screen.getByRole('button', { name: '选择工作区' })
     fireEvent.click(add)
     const flow = screen.getByTestId('directory-flow')
     for (const wide of [true, false, true]) {
       rerender(b, { wide })
-      expect(screen.getByRole('button', { name: '添加工作区' })).toBe(add)
+      expect(screen.getByRole('button', { name: '选择工作区' })).toBe(add)
       expect(screen.getByTestId('directory-flow')).toBe(flow)
     }
   })

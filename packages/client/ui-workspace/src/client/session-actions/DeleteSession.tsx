@@ -23,9 +23,10 @@ import css from './SessionActions.module.css'
  * @returns the row.
  */
 export function DeleteSessionMenuItem({
-  sessionId, useMenuOpenState, requestSessionDelete, t,
+  sessionId, useMenuOpenState, useSessionAccess, requestSessionDelete, t,
 }: SessionMenuItemProps<DeleteSessionInjected>) {
   const [, setMenuOpen] = useMenuOpenState()
+  if (!useSessionAccess(sessionId, 'workspace/deleteSession')) return null
   return (
     <MenuItemButton
       icon={<IconTrashOutlineRegular size={14} />}
@@ -45,8 +46,9 @@ export function DeleteSessionMenuItem({
  * @returns the button.
  */
 export function DeleteSessionRowButton({
-  sessionId, requestSessionDelete, t,
+  sessionId, useSessionAccess, requestSessionDelete, t,
 }: SessionRowActionProps<DeleteSessionInjected>) {
+  if (!useSessionAccess(sessionId, 'workspace/deleteSession')) return null
   return (
     <Tooltip label={t('actions.delete')} side="bottom" align="end" delayMs={500}>
       <button
