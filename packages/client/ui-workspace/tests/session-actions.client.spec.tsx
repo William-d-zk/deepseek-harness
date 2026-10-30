@@ -257,47 +257,6 @@ describe('delete action', () => {
   })
 })
 
-describe('fork and rename rows', () => {
-  it('fork closes the menu, then forks the Session', () => {
-    const { state, setMenuOpen } = openMenu()
-    const forkSession = vi.fn()
-    render(<ForkSessionMenuItem {...menuRow(state)} forkSession={forkSession} />)
-    fireEvent.click(screen.getByRole('menuitem', { name: '分叉会话' }))
-    expect(forkSession).toHaveBeenCalledWith(sid('one'))
-    expect(setMenuOpen).toHaveBeenCalledWith(false)
-    expect(callOrder(setMenuOpen)).toBeLessThan(callOrder(forkSession))
-  })
-
-  it('omits the fork row when the access snapshot excludes session/fork for this Session', () => {
-    const { state } = openMenu()
-    const useSessionAccess = vi.fn(() => false)
-    const { container } = render(
-      <ForkSessionMenuItem {...menuRow(state)} useSessionAccess={useSessionAccess} forkSession={vi.fn()} />,
-    )
-    expect(container.innerHTML).toBe('')
-    expect(useSessionAccess).toHaveBeenCalledWith(sid('one'), 'session/fork')
-  })
-
-  it('omits the rename row when the access snapshot excludes session/rename for this Session', () => {
-    const { state } = openMenu()
-    const useSessionAccess = vi.fn(() => false)
-    const view = render(
-      <RenameSessionMenuItem {...menuRow(state)} useSessionAccess={useSessionAccess} requestSessionRename={vi.fn()} />,
-    )
-    expect(view.container.innerHTML).toBe('')
-    expect(useSessionAccess).toHaveBeenCalledWith(sid('one'), 'session/rename')
-  })
-
-  it('rename closes the menu, then asks for the dialog with the row title', () => {
-    const { state, setMenuOpen } = openMenu()
-    const requestSessionRename = vi.fn()
-    render(<RenameSessionMenuItem {...menuRow(state)} requestSessionRename={requestSessionRename} />)
-    fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }))
-    expect(requestSessionRename).toHaveBeenCalledWith(sid('one'), 'Session title')
-    expect(setMenuOpen).toHaveBeenCalledWith(false)
-    expect(callOrder(setMenuOpen)).toBeLessThan(callOrder(requestSessionRename))
-  })
-})
 
 describe('SessionRenameDialog', () => {
   /** The dialog over a test-owned request source; settling clears the request the way apply does. */

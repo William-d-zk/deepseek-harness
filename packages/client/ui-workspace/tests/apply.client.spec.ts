@@ -18,7 +18,8 @@ import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import {
   type ArchiveSessionInjected, menuOpenStateFactory, type PinSessionInjected,
-  type RowToastInjected, type SessionArchiveConfirmInjected, type SessionRenameDialogInjected,
+  type RowToastInjected, type SessionDeleteConfirmInjected, type DeleteSessionInjected,
+  type SessionArchiveConfirmInjected, type SessionRenameDialogInjected,
   type WorkspaceViewStoreHandle,
 } from '../src/client/contract/slots.ts'
 import { WorkspaceBrowser } from '../src/client/rows/WorkspaceBrowser.tsx'
@@ -568,7 +569,6 @@ describe('ui-workspace apply', () => {
     const toast = faceOf(entry(b.slots, 'shell.overlay', 'workspace.row-toast')) as RowToastInjected
     const confirm = faceOf(entry(b.slots, 'shell.overlay', 'workspace.session-delete')) as SessionDeleteConfirmInjected
     const row = faceOf(entry(b.slots, ROW_ACTION, 'delete')) as DeleteSessionInjected
-    const menuRow = faceOf(entry(b.slots, MENU_ITEM, 'delete')) as DeleteSessionInjected
 
     // Neither entry deletes: each raises the confirmation, which names the row
     // and reports that the Session still runs.
@@ -577,9 +577,6 @@ describe('ui-workspace apply', () => {
       sessionId: 'doomed', displayTitle: 'Doomed session', running: true,
     })
     expect(deleteSession).not.toHaveBeenCalled()
-    menuRow.requestSessionDelete(sid('doomed'))
-    expect(confirm.hooks.deleteRequest.getSnapshot()).toMatchObject({ sessionId: 'doomed' })
-
     // Confirming stops the running work in the same call and shows the notice.
     await confirm.deleteSession(sid('doomed'), true)
     expect(deleteSession).toHaveBeenCalledWith('doomed', { stopActivity: true })

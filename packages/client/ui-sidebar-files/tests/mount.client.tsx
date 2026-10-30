@@ -125,7 +125,9 @@ function harness(placement: Placement, controller: AbortController) {
     await script.dispose()
   })
   const tabActions: MockedTabActions = {
-    bindCommands: vi.fn(() => vi.fn()),
+    // The inner mock needs its signature spelled out: a bare vi.fn() infers
+    // vitest's internal Procedure, which declaration emit cannot name portably.
+    bindCommands: vi.fn<SidebarRightTabActions['bindCommands']>(() => vi.fn((): void => {})),
     openResource: vi.fn<SidebarRightTabActions['openResource']>(),
     openTab: vi.fn<SidebarRightTabActions['openTab']>(),
     close: vi.fn<SidebarRightTabActions['close']>(),
@@ -145,7 +147,7 @@ function harness(placement: Placement, controller: AbortController) {
   const { hooks, keyedHooks, ...members } = face
   const t = makeTranslate(zh)
   const onOpen = vi.fn<(address: string) => void>()
-  const openMenu = vi.fn()
+  const openMenu = vi.fn<() => void>()
   const shared = {
     onOpen,
     useTabInfo,
