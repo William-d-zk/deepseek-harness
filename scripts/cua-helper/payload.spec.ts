@@ -64,7 +64,9 @@ it.skipIf(process.platform === 'win32')('verifies staged and repacked provider b
 it.skipIf(process.platform === 'win32')('keeps npm tarball bytes when reusing a helper and changes them after re-signing', async ({ signal }) => {
   const f = fixture()
   const require = createRequire(import.meta.url)
-  const pnpm = join(dirname(require.resolve('pnpm')), 'bin/pnpm.cjs')
+  // pnpm 12 ships no main field; resolve through the manifest (see the
+  // desktop pack spec for the same workaround).
+  const pnpm = join(dirname(require.resolve('pnpm/package.json')), 'bin/pnpm.mjs')
   const pack = async (label: string, mtime: Date): Promise<Buffer> => {
     const packageRoot = join(f.root, label, 'provider')
     const output = join(f.root, label, 'packed')

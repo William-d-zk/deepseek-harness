@@ -278,13 +278,15 @@ describe('FileTree', () => {
   })
 
   it('marks the current file and hands its row to the caller', () => {
-    const currentRef = vi.fn<(row: HTMLElement | null) => void>()
+    // React 19 hands ref callbacks a second (cleanup) argument; upstream's
+    // React 18 build calls with one.
+    const currentRef = vi.fn<(row: HTMLElement | null, previousCleanup?: undefined) => void>()
     const { view, rerender } = draw({ entries: CHANGES, expanded: ['pr/src'], current: 'pr/src/file2.ts', currentRef })
     const current = row(view.container, 'pr/src/file2.ts')
     expect(current.getAttribute('aria-current')).toBe('true')
     expect(view.container.querySelectorAll('[aria-current]')).toHaveLength(1)
-    expect(currentRef).toHaveBeenLastCalledWith(current)
+    expect(currentRef.mock.lastCall?.[0]).toBe(current)
     rerender({ expanded: [], current: 'pr/src/file2.ts', currentRef })
-    expect(currentRef).toHaveBeenLastCalledWith(null)
+    expect(currentRef.mock.lastCall?.[0]).toBeNull()
   })
 })
