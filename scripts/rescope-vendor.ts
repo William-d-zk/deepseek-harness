@@ -113,6 +113,8 @@ const GENERIC_SKIPS: readonly GenericSkip[] = [
   { file: 'docs/upgrade-guide/v0.2.0-rc.2/schedule-bundle-retired/guide.zh.md', upstream: ['cordis'] },
   { file: 'docs/upgrade-guide/v0.2.1-alpha.1/subagent-preset-composition/guide.md', upstream: ['cordis'] },
   { file: 'docs/upgrade-guide/v0.2.1-alpha.1/subagent-preset-composition/guide.zh.md', upstream: ['cordis'] },
+  { file: 'docs/upgrade-guide/v0.2.2-alpha.2/fs-observation-policy-default-off/guide.md', upstream: ['cordis'] },
+  { file: 'docs/upgrade-guide/v0.2.2-alpha.2/fs-observation-policy-default-off/guide.zh.md', upstream: ['cordis'] },
   { file: 'docs/user/guide/schedule.md', upstream: ['cordis'] },
   { file: 'docs/user/guide/schedule.zh.md', upstream: ['cordis'] },
   { file: 'packages/bundle/web-app/cordis.patch.yml', upstream: ['cordis'] },
@@ -136,6 +138,8 @@ const GENERIC_SKIPS: readonly GenericSkip[] = [
   // generated catalogs and every producer/consumer must preserve that wire id.
   { file: 'docs/event-producer-consumer.md', upstream: ['cordis'] },
   { file: 'docs/event-producer-consumer.zh.md', upstream: ['cordis'] },
+  { file: 'docs/tool-catalog.md', upstream: ['cordis'] },
+  { file: 'docs/tool-catalog.zh.md', upstream: ['cordis'] },
   { file: 'docs/subsystems/extensions.md', upstream: ['cordis'] },
   { file: 'docs/subsystems/extensions.zh.md', upstream: ['cordis'] },
   { file: 'packages/api/remotes/src/remote-events.ts', upstream: ['cordis'] },
@@ -167,6 +171,7 @@ const GENERIC_SKIPS: readonly GenericSkip[] = [
   { file: 'snapshots/session/cordis-inspect-liveness/client-fixture.mjs', upstream: ['cordis'] },
   { file: 'snapshots/session/cordis-inspect-timeout/client-fixture.mjs', upstream: ['cordis'] },
   { file: 'scripts/gen-cordis-catalog.ts', upstream: ['cordis'] },
+  { file: 'scripts/gen-tool-catalog.ts', upstream: ['cordis'] },
   // The UI locale namespace and input-trigger source id are product keys.
   { file: 'packages/client/ui-settings-plugin-inventory/src/client/PluginInventorySettingsTab.tsx', upstream: ['cordis'] },
   { file: 'packages/extensions/ui-cordis/src/client/CordisActionRow.tsx', upstream: ['cordis'] },
